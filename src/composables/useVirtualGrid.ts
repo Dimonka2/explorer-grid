@@ -66,7 +66,7 @@ export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridRe
     })
   })
 
-  const scrollToIndex = (index: number, align: 'start' | 'center' | 'end' = 'center') => {
+  const scrollToIndex = (index: number, align: 'start' | 'center' | 'end' | 'auto' = 'auto') => {
     const rowIndex = Math.floor(index / columnCount.value)
     rowVirtualizer.value.scrollToIndex(rowIndex, { align })
   }

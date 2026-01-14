@@ -10,17 +10,46 @@ interface DemoItem {
   color: string
 }
 
+type NamingMode = 'numbers' | 'letters' | 'files'
+
 const itemCount = ref(1000)
 const itemWidth = ref(120)
 const itemHeight = ref(100)
 const gap = ref(8)
 const selectionMode = ref<SelectionMode>('multiple')
+const namingMode = ref<NamingMode>('letters')
+
+// Generate names based on naming mode
+const generateName = (index: number): string => {
+  switch (namingMode.value) {
+    case 'letters': {
+      // A, B, C... then A1, B1, C1... then A2, B2, C2...
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      const letterIndex = index % 26
+      const cycle = Math.floor(index / 26)
+      return cycle === 0
+        ? letters[letterIndex]
+        : `${letters[letterIndex]}${cycle}`
+    }
+    case 'files': {
+      // Simulate file names
+      const prefixes = ['Document', 'Image', 'Video', 'Audio', 'Archive', 'Backup', 'Config', 'Data']
+      const extensions = ['.txt', '.jpg', '.mp4', '.mp3', '.zip', '.bak', '.json', '.csv']
+      const prefixIndex = index % prefixes.length
+      const num = Math.floor(index / prefixes.length) + 1
+      return `${prefixes[prefixIndex]}_${num}${extensions[prefixIndex]}`
+    }
+    case 'numbers':
+    default:
+      return `Item ${index + 1}`
+  }
+}
 
 const items = computed<DemoItem[]>(() => {
   const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e']
   return Array.from({ length: itemCount.value }, (_, i) => ({
     id: i + 1,
-    name: `Item ${i + 1}`,
+    name: generateName(i),
     color: colors[i % colors.length],
   }))
 })
@@ -72,11 +101,19 @@ const handleContextMenu = (e: MouseEvent, selection: Set<ItemId>) => {
           <input v-model.number="gap" type="number" min="0" max="32" step="4" />
         </label>
         <label>
-          Mode:
+          Selection:
           <select v-model="selectionMode">
             <option value="none">None</option>
             <option value="single">Single</option>
             <option value="multiple">Multiple</option>
+          </select>
+        </label>
+        <label>
+          Names:
+          <select v-model="namingMode">
+            <option value="letters">Letters (A, B, C...)</option>
+            <option value="files">Files (Document, Image...)</option>
+            <option value="numbers">Numbers (Item 1, 2...)</option>
           </select>
         </label>
       </div>
@@ -127,6 +164,9 @@ const handleContextMenu = (e: MouseEvent, selection: Set<ItemId>) => {
       <p>
         <strong>Keyboard:</strong> Arrows (navigate), Shift+Arrow (extend selection), Ctrl+Arrow (move focus),
         Space (toggle), Enter (open), Ctrl+A (select all), Escape (clear)
+      </p>
+      <p>
+        <strong>Typeahead:</strong> Just type letters to jump to matching items (e.g., type "D" to jump to "D" or "Document")
       </p>
       <p>
         <strong>Mouse:</strong> Click (select), Ctrl+Click (toggle), Shift+Click (range), Drag empty space (marquee)

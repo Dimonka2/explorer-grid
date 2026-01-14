@@ -211,6 +211,7 @@ export interface UseMarqueeOptions {
 export interface UseMarqueeReturn {
   isActive: Ref<boolean>
   rect: Ref<MarqueeRect | null>
+  scrollOffset: Ref<{ x: number; y: number }>
 
   startMarquee: (e: PointerEvent) => void
   updateMarquee: (e: PointerEvent) => void
@@ -232,6 +233,6 @@ export interface UseVirtualGridReturn {
   virtualRows: ComputedRef<VirtualRow[]>
   totalHeight: ComputedRef<number>
   visibleRowCount: ComputedRef<number>
-  scrollToIndex: (index: number, align?: 'start' | 'center' | 'end') => void
+  scrollToIndex: (index: number, align?: 'start' | 'center' | 'end' | 'auto') => void
   scrollToOffset: (offset: number) => void
 }

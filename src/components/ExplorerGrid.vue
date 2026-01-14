@@ -144,12 +144,10 @@ const marquee = useMarquee({
     toggle: grid.toggle,
     selectOnly: grid.selectOnly,
     selectMultiple: () => {},
+    // For marquee: select exactly these IDs, not a range between them
     selectRange: (ids) => {
-      if (ids.length >= 2) {
-        grid.selectRange(ids[0], ids[ids.length - 1])
-      } else if (ids.length === 1) {
-        grid.selectOnly(ids[0])
-      }
+      // Directly set the selection to only these specific IDs
+      grid.selectedIds.value = new Set(ids)
     },
     selectAll: grid.selectAll,
     clear: grid.clearSelection,
@@ -199,12 +197,13 @@ const onContextMenu = (e: MouseEvent) => {
   emit('contextmenu', e, new Set(grid.selectedIds.value))
 }
 
-// Scroll to focused item when it changes
+// Scroll to focused item when it changes - only if not fully visible
 watch(grid.focusedId, (id) => {
-  if (id !== null) {
+  if (id !== null && containerRef.value) {
     const index = grid.getIndexById(id)
     if (index >= 0) {
-      virtual.scrollToIndex(index, 'center')
+      // Use 'auto' alignment - only scrolls if item is outside viewport
+      virtual.scrollToIndex(index, 'auto')
     }
   }
 })
@@ -240,17 +239,15 @@ const getItemStyle = (rowStart: number, colIndex: number) => {
   }
 }
 
-// Marquee style
+// Marquee style - now uses content coordinates directly since marquee is inside scroll container
 const marqueeStyle = computed(() => {
-  if (!marquee.rect.value || !containerRef.value) return {}
+  if (!marquee.rect.value) return {}
 
   const r = marquee.rect.value
-  const scrollLeft = containerRef.value.scrollLeft
-  const scrollTop = containerRef.value.scrollTop
 
   return {
-    left: `${Math.min(r.startX, r.endX) - scrollLeft}px`,
-    top: `${Math.min(r.startY, r.endY) - scrollTop}px`,
+    left: `${Math.min(r.startX, r.endX)}px`,
+    top: `${Math.min(r.startY, r.endY)}px`,
     width: `${Math.abs(r.endX - r.startX)}px`,
     height: `${Math.abs(r.endY - r.startY)}px`,
   }
@@ -324,10 +321,10 @@ defineExpose({
           />
         </div>
       </template>
-    </div>
 
-    <!-- Marquee overlay -->
-    <div v-if="marquee.isActive.value" class="eg-marquee" :style="marqueeStyle" />
+      <!-- Marquee overlay - inside scroll container so it scrolls with content -->
+      <div v-if="marquee.isActive.value" class="eg-marquee" :style="marqueeStyle" />
+    </div>
 
     <!-- Empty state -->
     <slot v-if="items.length === 0" name="empty">
