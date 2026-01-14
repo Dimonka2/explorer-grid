@@ -1,0 +1,16 @@
+{
+  "terminal.integrated.profiles.windows": {
+    "Laragon PowerShell": {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "args": [
+        "-NoExit",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "'C:\\Users\\dgultyae\\Downloads\\laragon\\bin\\cmder\\config\\profile.d\\windows_profile.cmd'"
+      ],
+      "icon": "terminal-powershell"
+    }
+  },
+  "terminal.integrated.defaultProfile.windows": "Laragon PowerShell"
+}

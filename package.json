@@ -1,0 +1,72 @@
+{
+  "name": "explorer-grid",
+  "version": "0.1.0",
+  "description": "Vue 3 Explorer-like virtualized grid with keyboard navigation and selection",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./styles": "./dist/style.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite --config playground/vite.config.ts",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts,.vue",
+    "lint:fix": "eslint src --ext .ts,.vue --fix",
+    "format": "prettier --write \"src/**/*.{ts,vue}\"",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "peerDependencies": {
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@tanstack/vue-virtual": "^3.11.2",
+    "@types/node": "^22.10.5",
+    "@typescript-eslint/eslint-plugin": "^8.19.1",
+    "@typescript-eslint/parser": "^8.19.1",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vitest/coverage-v8": "^2.1.8",
+    "@vue/test-utils": "^2.4.6",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-vue": "^9.32.0",
+    "happy-dom": "^16.6.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vite-plugin-dts": "^4.4.0",
+    "vitest": "^2.1.8",
+    "vue": "^3.5.13",
+    "vue-tsc": "^2.2.0"
+  },
+  "keywords": [
+    "vue",
+    "vue3",
+    "grid",
+    "virtualized",
+    "explorer",
+    "selection",
+    "keyboard-navigation"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anthropics/explorer-grid.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anthropics/explorer-grid/issues"
+  }
+}
