@@ -13,6 +13,7 @@ interface DemoItem {
 type NamingMode = 'numbers' | 'letters' | 'files'
 
 const itemCount = ref(1000)
+const stressTestMode = ref(false)
 const itemWidth = ref(120)
 const itemHeight = ref(100)
 const gap = ref(8)
@@ -116,6 +117,13 @@ const handleContextMenu = (e: MouseEvent, selection: Set<ItemId>) => {
             <option value="numbers">Numbers (Item 1, 2...)</option>
           </select>
         </label>
+        <button
+          class="stress-btn"
+          :class="{ active: stressTestMode }"
+          @click="stressTestMode = !stressTestMode; itemCount = stressTestMode ? 100000 : 1000"
+        >
+          {{ stressTestMode ? '100k Mode ON' : 'Stress Test (100k)' }}
+        </button>
       </div>
     </header>
 
@@ -216,6 +224,26 @@ const handleContextMenu = (e: MouseEvent, selection: Set<ItemId>) => {
 
 .controls input[type='number'] {
   width: 80px;
+}
+
+.stress-btn {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #e74c3c;
+  border-radius: 4px;
+  background: white;
+  color: #e74c3c;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stress-btn:hover {
+  background: #fef0ef;
+}
+
+.stress-btn.active {
+  background: #e74c3c;
+  color: white;
 }
 
 .status-bar {
