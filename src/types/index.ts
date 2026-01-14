@@ -220,10 +220,11 @@ export interface UseMarqueeReturn {
 // Virtual grid composable types
 export interface UseVirtualGridOptions {
   containerRef: Ref<HTMLElement | null>
+  containerHeight: Ref<number>
   items: Ref<unknown[]>
   columnCount: Ref<number>
-  rowHeight: number
-  gap?: number
+  rowHeight: Ref<number> | number
+  gap?: Ref<number> | number
   overscan?: number
 }
 

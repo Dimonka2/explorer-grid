@@ -33,29 +33,36 @@
   position: relative;
   box-sizing: border-box;
   cursor: pointer;
-  transition: background-color 0.1s ease, outline 0.1s ease;
+  overflow: hidden;
 }
 
-.eg-item:hover {
-  background: var(--eg-hover-bg, rgba(0, 0, 0, 0.04));
-}
-
+/* Selection indicator - thick inset border visible on top of any content */
 .eg-item--selected {
-  background: var(--eg-selected-bg, rgba(0, 102, 204, 0.1));
+  outline: 3px solid var(--eg-selected-border, #0078d4);
+  outline-offset: -3px;
 }
 
-.eg-item--selected:hover {
-  background: var(--eg-selected-hover-bg, rgba(0, 102, 204, 0.15));
+.eg-item--selected::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--eg-selected-bg, rgba(0, 120, 212, 0.3));
+  pointer-events: none;
+  z-index: 999;
 }
 
+/* Focus indicator - outer ring */
 .eg-item--focused {
-  outline: 2px solid var(--eg-focus-color, #0066cc);
-  outline-offset: -2px;
+  outline: 3px solid var(--eg-focus-color, #0078d4);
+  outline-offset: 2px;
   z-index: 1;
 }
 
+/* Both selected and focused - double ring effect */
 .eg-item--focused.eg-item--selected {
-  background: var(--eg-selected-focused-bg, rgba(0, 102, 204, 0.2));
+  outline: 3px solid var(--eg-focus-color, #005a9e);
+  outline-offset: 2px;
+  box-shadow: inset 0 0 0 3px var(--eg-selected-border, #0078d4);
 }
 
 /* Marquee overlay */
@@ -95,10 +102,9 @@
  * --eg-gap: Gap between items (default: 8px)
  * --eg-focus-ring-color: Focus ring on container (default: #0066cc)
  * --eg-focus-color: Focus outline on items (default: #0066cc)
- * --eg-hover-bg: Item hover background (default: rgba(0, 0, 0, 0.04))
- * --eg-selected-bg: Selected item background (default: rgba(0, 102, 204, 0.1))
- * --eg-selected-hover-bg: Selected + hover background (default: rgba(0, 102, 204, 0.15))
- * --eg-selected-focused-bg: Selected + focused background (default: rgba(0, 102, 204, 0.2))
+ * --eg-focus-selected-color: Focus outline when also selected (default: #004499)
+ * --eg-selected-border: Selected item border color (default: #0066cc)
+ * --eg-selected-bg: Selected item overlay (default: rgba(0, 102, 204, 0.15))
  * --eg-marquee-border: Marquee border color (default: #0066cc)
  * --eg-marquee-bg: Marquee background (default: rgba(0, 102, 204, 0.1))
  * --eg-empty-color: Empty state text color (default: #666)

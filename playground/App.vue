@@ -190,6 +190,7 @@ const handleContextMenu = (e: MouseEvent, selection: Set<ItemId>) => {
 
 .grid-container {
   flex: 1;
+  min-height: 0; /* Required for flex child scrolling */
   overflow: hidden;
   padding: 1rem;
 }

@@ -55,12 +55,14 @@ const emit = defineEmits<{
 // Template refs
 const containerRef = ref<HTMLElement | null>(null)
 
-// Calculate column count based on container width
+// Track container dimensions for responsive layout
 const containerWidth = ref(0)
+const containerHeight = ref(0)
 
-const updateContainerWidth = () => {
+const updateContainerSize = () => {
   if (containerRef.value) {
     containerWidth.value = containerRef.value.clientWidth
+    containerHeight.value = containerRef.value.clientHeight
   }
 }
 
@@ -95,10 +97,11 @@ const grid = useExplorerGrid({
 // Virtualization
 const virtual = useVirtualGrid({
   containerRef,
+  containerHeight,
   items: toRef(props, 'items'),
   columnCount,
-  rowHeight: props.itemHeight,
-  gap: props.gap,
+  rowHeight: toRef(props, 'itemHeight'),
+  gap: toRef(props, 'gap'),
   overscan: props.overscan,
 })
 
@@ -210,10 +213,10 @@ watch(grid.focusedId, (id) => {
 let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
-  updateContainerWidth()
+  updateContainerSize()
 
   resizeObserver = new ResizeObserver(() => {
-    updateContainerWidth()
+    updateContainerSize()
   })
 
   if (containerRef.value) {
@@ -225,14 +228,15 @@ onUnmounted(() => {
   resizeObserver?.disconnect()
 })
 
-// Get item style
+// Get item style - computed based on current props
 const getItemStyle = (rowStart: number, colIndex: number) => {
+  const { itemWidth, itemHeight, gap } = props
   return {
     position: 'absolute' as const,
     top: `${rowStart}px`,
-    left: `${colIndex * (props.itemWidth + props.gap)}px`,
-    width: `${props.itemWidth}px`,
-    height: `${props.itemHeight}px`,
+    left: `${colIndex * (itemWidth + gap)}px`,
+    width: `${itemWidth}px`,
+    height: `${itemHeight}px`,
   }
 }
 

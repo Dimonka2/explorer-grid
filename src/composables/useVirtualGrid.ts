@@ -1,11 +1,15 @@
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, toValue } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import type { UseVirtualGridOptions, UseVirtualGridReturn, VirtualRow, VirtualItem } from '../types'
 
 export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridReturn {
-  const { containerRef, items, columnCount, rowHeight, gap = 0, overscan = 3 } = options
+  const { containerRef, containerHeight, items, columnCount, rowHeight, gap = 0, overscan = 3 } = options
 
   const scrollOffset = ref(0)
+
+  // Reactive row height and gap
+  const rowHeightValue = computed(() => toValue(rowHeight))
+  const gapValue = computed(() => toValue(gap))
 
   // Calculate total row count
   const rowCount = computed(() => {
@@ -17,7 +21,7 @@ export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridRe
     computed(() => ({
       count: rowCount.value,
       getScrollElement: () => containerRef.value,
-      estimateSize: () => rowHeight + gap,
+      estimateSize: () => rowHeightValue.value + gapValue.value,
       overscan,
     }))
   )
@@ -27,10 +31,10 @@ export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridRe
     return rowVirtualizer.value.getTotalSize()
   })
 
-  // Visible row count (for page navigation)
+  // Visible row count (for page navigation) - uses reactive containerHeight
   const visibleRowCount = computed(() => {
-    if (!containerRef.value) return 5
-    return Math.ceil(containerRef.value.clientHeight / (rowHeight + gap))
+    if (containerHeight.value === 0) return 5
+    return Math.ceil(containerHeight.value / (rowHeightValue.value + gapValue.value))
   })
 
   // Map virtual rows to our format with item indices
@@ -78,8 +82,8 @@ export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridRe
     }
   }
 
-  // Watch for column count changes to remeasure
-  watch(columnCount, () => {
+  // Watch for column count, row height, or gap changes to remeasure
+  watch([columnCount, rowHeightValue, gapValue], () => {
     rowVirtualizer.value.measure()
   })
 
