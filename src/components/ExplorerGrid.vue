@@ -228,12 +228,13 @@ onUnmounted(() => {
 })
 
 // Get item style - computed based on current props
+// Adds gap offset at top and left to allow marquee selection from before first item
 const getItemStyle = (rowStart: number, colIndex: number) => {
   const { itemWidth, itemHeight, gap } = props
   return {
     position: 'absolute' as const,
-    top: `${rowStart}px`,
-    left: `${colIndex * (itemWidth + gap)}px`,
+    top: `${rowStart + gap}px`,
+    left: `${colIndex * (itemWidth + gap) + gap}px`,
     width: `${itemWidth}px`,
     height: `${itemHeight}px`,
   }
@@ -292,7 +293,7 @@ defineExpose({
     </div>
 
     <!-- Virtual scroll container -->
-    <div class="eg-scroll-container" :style="{ height: `${virtual.totalHeight.value}px` }">
+    <div class="eg-scroll-container" :style="{ height: `${virtual.totalHeight.value + gap}px` }">
       <template v-for="row in virtual.virtualRows.value" :key="row.index">
         <div
           v-for="vItem in row.items"
