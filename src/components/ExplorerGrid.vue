@@ -21,6 +21,7 @@ const props = withDefaults(
     selectOnFocus?: boolean
     clearSelectionOnEmptyClick?: boolean
     rightClickSelect?: boolean
+    ariaLabel?: string
   }>(),
   {
     itemHeight: 100,
@@ -33,6 +34,7 @@ const props = withDefaults(
     selectOnFocus: true,
     clearSelectionOnEmptyClick: true,
     rightClickSelect: true,
+    ariaLabel: 'Item grid',
   }
 )
 
@@ -260,6 +262,39 @@ const activeDescendantId = computed(() => {
   return `eg-item-${grid.focusedId.value}`
 })
 
+// Live region announcement - debounced to avoid spamming screen readers
+const announcement = ref('')
+let announcementTimeout: ReturnType<typeof setTimeout> | null = null
+
+watch(
+  () => grid.selectedIds.value.size,
+  (newSize, oldSize) => {
+    if (newSize === oldSize) return
+
+    // Clear previous pending announcement
+    if (announcementTimeout) {
+      clearTimeout(announcementTimeout)
+    }
+
+    // Debounce announcement by 150ms to batch rapid changes
+    announcementTimeout = setTimeout(() => {
+      if (newSize === 0) {
+        announcement.value = 'Selection cleared'
+      } else if (newSize === 1) {
+        announcement.value = '1 item selected'
+      } else {
+        announcement.value = `${newSize} items selected`
+      }
+    }, 150)
+  }
+)
+
+onUnmounted(() => {
+  if (announcementTimeout) {
+    clearTimeout(announcementTimeout)
+  }
+})
+
 // Expose methods
 defineExpose({
   scrollToIndex: virtual.scrollToIndex,
@@ -274,24 +309,26 @@ defineExpose({
 </script>
 
 <template>
-  <div
-    ref="containerRef"
-    class="eg-root"
-    tabindex="0"
-    role="listbox"
-    :aria-multiselectable="selectionMode === 'multiple'"
-    :aria-activedescendant="activeDescendantId"
-    @keydown="grid.handleKeydown"
-    @pointerdown="onPointerDown"
-    @pointermove="onPointerMove"
-    @pointerup="onPointerUp"
-    @contextmenu="onContextMenu"
-  >
-    <!-- Screen reader announcement -->
+  <div class="eg-wrapper">
+    <!-- Screen reader announcement - outside listbox to avoid aria-required-children violation -->
     <div class="eg-sr-only" aria-live="polite" aria-atomic="true">
-      {{ grid.selectedIds.value.size }} items selected
+      {{ announcement }}
     </div>
 
+    <div
+      ref="containerRef"
+      class="eg-root"
+      tabindex="0"
+      role="listbox"
+      :aria-label="ariaLabel"
+      :aria-multiselectable="selectionMode === 'multiple'"
+      :aria-activedescendant="activeDescendantId"
+      @keydown="grid.handleKeydown"
+      @pointerdown="onPointerDown"
+      @pointermove="onPointerMove"
+      @pointerup="onPointerUp"
+      @contextmenu="onContextMenu"
+    >
     <!-- Virtual scroll container -->
     <div class="eg-scroll-container" :style="{ height: `${virtual.totalHeight.value + gap}px` }">
       <template v-for="row in virtual.virtualRows.value" :key="row.index">
@@ -312,6 +349,8 @@ defineExpose({
           :data-index="vItem.index"
           role="option"
           :aria-selected="grid.isSelected(getId(items[vItem.index]))"
+          :aria-setsize="items.length"
+          :aria-posinset="vItem.index + 1"
         >
           <slot
             name="item"
@@ -331,5 +370,6 @@ defineExpose({
     <slot v-if="items.length === 0" name="empty">
       <div class="eg-empty">No items</div>
     </slot>
+    </div>
   </div>
 </template>

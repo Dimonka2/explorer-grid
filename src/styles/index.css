@@ -1,5 +1,9 @@
 /* Explorer Grid - Default Styles */
 
+.eg-wrapper {
+  display: contents;
+}
+
 .eg-root {
   position: relative;
   overflow: auto;
@@ -96,6 +100,37 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* High contrast mode support */
+@media (forced-colors: active) {
+  .eg-root:focus-visible {
+    outline: 2px solid Highlight;
+  }
+
+  .eg-item--selected {
+    outline: 3px solid Highlight;
+    forced-color-adjust: none;
+  }
+
+  .eg-item--selected::before {
+    background: Highlight;
+    opacity: 0.3;
+  }
+
+  .eg-item--focused {
+    outline: 3px solid ButtonText;
+  }
+
+  .eg-item--focused.eg-item--selected {
+    outline: 3px solid Highlight;
+    box-shadow: inset 0 0 0 3px ButtonText;
+  }
+
+  .eg-marquee {
+    border: 2px solid Highlight;
+    background: transparent;
+  }
 }
 
 /* CSS Custom Properties Reference:
