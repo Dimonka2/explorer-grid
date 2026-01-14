@@ -148,8 +148,12 @@ const marquee = useMarquee({
     selectMultiple: () => {},
     // For marquee: select exactly these IDs, not a range between them
     selectRange: (ids) => {
-      // Directly set the selection to only these specific IDs
-      grid.selectedIds.value = new Set(ids)
+      // Set the selection to only these specific IDs
+      const newSelection = new Set(ids)
+      grid.selectedIds.value = newSelection
+      // Update v-model and emit event (bypassed when setting directly)
+      selectedIds.value = newSelection
+      emit('selectionChange', newSelection)
     },
     selectAll: grid.selectAll,
     clear: grid.clearSelection,

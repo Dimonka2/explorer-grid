@@ -1,141 +1,162 @@
 # CLAUDE.md - Explorer Grid Project Guide
 
+## Project Status: Complete
+
+All 7 phases implemented. Ready for use and publishing.
+
 ## Documentation
 
-- **PRD**: `docs/prd.md` - Product requirements and goals
-- **Technical Specs**: `docs/specs.md` - Detailed implementation specifications
-- **Roadmap**: `docs/roadmap.md` - Phased development plan with tasks
+- **README**: `README.md` - Quick start and overview
+- **API Reference**: `docs/api.md` - Full API documentation
+- **Examples**: `docs/examples.md` - Usage examples
+- **Styling Guide**: `docs/styling.md` - Customization guide
+- **PRD**: `docs/prd.md` - Original product requirements
+- **Specs**: `docs/specs.md` - Technical specifications
+- **Roadmap**: `docs/roadmap.md` - Development phases (all complete)
 
 ## Project Overview
 
-Vue 3 package providing an Explorer-like virtualized grid of items (cards) with:
-- Virtualization for 100k+ items
-- Keyboard navigation (arrows, Home/End, PageUp/PageDown)
+Vue 3 package providing an Explorer-like virtualized grid with:
+- Virtualization for 100k+ items using @tanstack/vue-virtual
+- Full keyboard navigation (arrows, Home/End, PageUp/PageDown, Ctrl+Arrow)
 - Selection model (single, multi, range, toggle)
-- Focus management aligned with native Explorer behavior
-- Mouse behaviors: click, ctrl/meta click, shift click, drag-marquee selection
-- Optional type-to-select and incremental search
+- Marquee (rubber-band) selection with edge auto-scroll
+- Type-to-select (typeahead)
+- Accessibility (ARIA listbox pattern, screen reader announcements)
 
 **Architecture**: Headless-first (logic composables) with optional reference UI component.
 
 ## Tech Stack
 
-- Vue 3 (Composition API)
-- TypeScript
-- Vite (build tooling)
+- Vue 3.5+ (Composition API)
+- TypeScript 5.7+
+- Vite 6 (build)
+- Vitest (testing)
+- @tanstack/vue-virtual (virtualization)
 
-## Key Concepts
+## Quick Start
 
-### Selection Model
-- `focusedId`: Currently focused item (keyboard cursor)
-- `anchorId`: Anchor point for range selection (set on click/focus change)
-- `selectedIds`: Set of selected item IDs
+```vue
+<script setup>
+import { ref } from 'vue'
+import { ExplorerGrid } from 'explorer-grid'
+import 'explorer-grid/styles'
 
-### Selection Behaviors
-- **Click**: Select only this item, set focus and anchor
-- **Ctrl/Cmd+Click**: Toggle item in selection, move focus
-- **Shift+Click**: Select range from anchor to clicked item
-- **Shift+Arrow**: Extend selection as focus moves
-- **Ctrl/Cmd+Arrow**: Move focus without changing selection
+const items = ref([{ id: 1, name: 'Item 1' }, ...])
+const selectedIds = ref(new Set())
+</script>
 
-### Virtualization
-- Only render visible items + overscan buffer
-- `scrollToIndex`, `scrollToId`, `ensureVisible(id, align)` API
-- When focus moves to non-rendered item, scroll it into view
-
-## Package Exports
-
-### Headless Composable: `useExplorerGrid(options)`
-
-**Inputs:**
-- `items: Ref<T[]>` - Array of items
-- `getId(item): string | number` - Unique ID accessor
-- `getLabel?(item): string` - Label for typeahead
-- `columnCount` - Fixed or computed callback
-- Feature flags: `multiSelect`, `marquee`, `typeahead`, `selectOnFocus`
-
-**Outputs:**
-- State: `focusedId`, `anchorId`, `selectedIds`
-- Helpers: `isSelected(id)`, `toggle(id)`, `selectOnly(id)`, `selectRange(a,b)`, `selectAll()`, `clearSelection()`
-- Navigation: `moveFocus(direction)`, `focusByIndex(i)`, `focusById(id)`
-- Event handlers: `handleKeydown(e)`, `handlePointerDown(e, hit)`, `handlePointerMove(e)`, `handlePointerUp(e)`
-
-### Reference Component: `<ExplorerGrid />`
-
-**Props:**
-- `items`, `getId`, `estimateSize`
-- `overscan`, `selectionMode`
-- `v-model:selectedIds`, `v-model:focusedId`
-
-**Slots:**
-- `#item="{ item, index, selected, focused }"`
-- `#empty`
-
-**Emits:**
-- `open`, `selection-change`, `focus-change`, `contextmenu`
-
-## CSS Classes
-
-- `eg-root` - Grid container
-- `eg-item` - Individual item
-- `eg-item--selected` - Selected state
-- `eg-item--focused` - Focused state
-- `eg-marquee` - Rubber-band selection overlay
-
-## File Structure (Expected)
-
-```
-src/
-├── composables/
-│   ├── useExplorerGrid.ts      # Main composable
-│   ├── useSelection.ts         # Selection state management
-│   ├── useFocus.ts             # Focus management
-│   ├── useKeyboard.ts          # Keyboard navigation
-│   ├── useMarquee.ts           # Rubber-band selection
-│   └── useTypeahead.ts         # Type-to-select
-├── components/
-│   └── ExplorerGrid.vue        # Reference UI component
-├── types/
-│   └── index.ts                # TypeScript types
-├── utils/
-│   └── index.ts                # Helper utilities
-└── index.ts                    # Package entry point
+<template>
+  <ExplorerGrid
+    v-model:selectedIds="selectedIds"
+    :items="items"
+    :get-id="(item) => item.id"
+    :item-width="100"
+    :item-height="100"
+  >
+    <template #item="{ item }">{{ item.name }}</template>
+  </ExplorerGrid>
+</template>
 ```
 
 ## Development Commands
 
 ```bash
 npm install          # Install dependencies
-npm run dev          # Development server
+npm run dev          # Development server (playground)
 npm run build        # Build package
-npm run test         # Run tests
+npm run test         # Run tests (watch mode)
+npm run test:run     # Run tests once
+npm run type-check   # TypeScript check
 npm run lint         # Lint code
+npm run lint:fix     # Fix lint issues
 ```
 
-## Performance Requirements
+## File Structure
 
-- Keep DOM node count bounded (visible + overscan only)
-- No per-item watchers for large lists
-- `selectedIds` as Set for O(1) operations
-- For very large sets, consider inversion model: `allSelected + exceptions`
+```
+src/
+├── composables/
+│   ├── useExplorerGrid.ts      # Main composable (combines all)
+│   ├── useSelection.ts         # Selection state management
+│   ├── useFocus.ts             # Focus & navigation
+│   ├── useKeyboard.ts          # Keyboard event handling
+│   ├── useMarquee.ts           # Rubber-band selection
+│   ├── useTypeahead.ts         # Type-to-select
+│   └── useVirtualGrid.ts       # Virtualization wrapper
+├── components/
+│   └── ExplorerGrid.vue        # Reference UI component
+├── types/
+│   └── index.ts                # TypeScript interfaces
+├── styles/
+│   └── index.css               # Default styles
+└── index.ts                    # Package exports
 
-## Accessibility (A11y)
+tests/
+├── unit/                       # Unit tests for composables
+└── a11y/                       # Accessibility tests
 
-- ARIA grid pattern with roving tabindex
-- Visible focus ring for keyboard navigation
-- Tab exits grid; arrows navigate within
-- Optional live region for selection count announcements
+playground/                     # Development demo app
+docs/                          # Documentation
+```
 
-## Edge Cases to Handle
+## Key Composables
 
-1. **Container resize**: Preserve focused item by ID, recompute column mapping
-2. **Items change (filter/sort)**: If focused ID disappears, move focus to nearest neighbor
-3. **Async loading**: Allow placeholder items, keep navigation stable by index
+### useExplorerGrid(options)
+Main composable - use for headless implementations.
 
-## Code Style
+### useSelection({ mode, onSelectionChange })
+Selection state: `selectedIds`, `anchorId`, methods like `toggle`, `selectOnly`, `selectRange`.
 
-- Use TypeScript strict mode
-- Prefer `const` over `let`
-- Use Composition API with `<script setup>`
-- Extract reusable logic into composables
-- Keep components focused and composable
+### useFocus({ items, getId, columnCount, onFocusChange })
+Focus management: `focusedId`, `moveFocus(direction)`, `setFocusById`.
+
+### useVirtualGrid({ containerRef, items, columnCount, rowHeight, gap })
+Virtualization: `virtualRows`, `totalHeight`, `scrollToIndex`.
+
+## CSS Classes
+
+| Class | Description |
+|-------|-------------|
+| `.eg-root` | Main container |
+| `.eg-item` | Item wrapper |
+| `.eg-item--selected` | Selected state |
+| `.eg-item--focused` | Focused state |
+| `.eg-marquee` | Selection overlay |
+| `.eg-empty` | Empty state |
+
+## CSS Custom Properties
+
+```css
+--eg-focus-ring-color    /* Container focus */
+--eg-focus-color         /* Item focus outline */
+--eg-selected-border     /* Selection border */
+--eg-selected-bg         /* Selection background */
+--eg-marquee-border      /* Marquee border */
+--eg-marquee-bg          /* Marquee background */
+```
+
+## Test Coverage
+
+- 54 tests total (unit + a11y)
+- Unit tests: useSelection, useFocus, useExplorerGrid
+- A11y tests: ARIA attributes, axe-core validation
+
+## Performance
+
+- Virtualized rendering (only visible items + overscan)
+- O(1) item lookup via ID-to-index Map
+- Set-based selection for efficient operations
+- Handles 100k+ items smoothly
+
+## Accessibility Features
+
+- ARIA listbox pattern with `aria-activedescendant`
+- `aria-setsize` and `aria-posinset` for virtualization
+- Live region for selection announcements (debounced)
+- High contrast mode support
+- Full keyboard navigation
+
+## License
+
+MIT - See LICENSE file
