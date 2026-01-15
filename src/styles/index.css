@@ -1,7 +1,9 @@
 /* Explorer Grid - Default Styles */
 
 .eg-wrapper {
-  display: contents;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .eg-root {
@@ -9,20 +11,18 @@
   overflow: auto;
   outline: none;
   user-select: none;
+  flex: 1;
+  min-height: 0;
 }
 
 .eg-root:focus-visible {
-  outline: 2px solid var(--eg-focus-ring-color, #0066cc);
-  outline-offset: -2px;
+  /* No visible focus ring on container */
+  outline: none;
 }
 
 .eg-scroll-container {
   position: relative;
   width: 100%;
-}
-
-.eg-wrapper {
-  position: relative;
 }
 
 .eg-row {
@@ -40,33 +40,30 @@
   overflow: hidden;
 }
 
-/* Selection indicator - thick inset border visible on top of any content */
+/* Selection indicator - box-shadow for reliable visibility */
 .eg-item--selected {
-  outline: 3px solid var(--eg-selected-border, #0078d4);
-  outline-offset: -3px;
+  box-shadow: 0 0 0 3px var(--eg-selected-border, #0078d4);
+  z-index: 1;
 }
 
 .eg-item--selected::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--eg-selected-bg, rgba(0, 120, 212, 0.3));
+  background: var(--eg-selected-bg, rgba(0, 120, 212, 0.2));
   pointer-events: none;
   z-index: 999;
 }
 
-/* Focus indicator - outer ring */
+/* Focus indicator - subtle outline for keyboard navigation */
 .eg-item--focused {
-  outline: 3px solid var(--eg-focus-color, #0078d4);
-  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--eg-focus-color, #60a5fa);
   z-index: 1;
 }
 
-/* Both selected and focused - double ring effect */
+/* Both selected and focused - show both with layered box-shadow */
 .eg-item--focused.eg-item--selected {
-  outline: 3px solid var(--eg-focus-color, #005a9e);
-  outline-offset: 2px;
-  box-shadow: inset 0 0 0 3px var(--eg-selected-border, #0078d4);
+  box-shadow: 0 0 0 2px var(--eg-focus-color, #60a5fa), 0 0 0 4px var(--eg-selected-border, #0078d4);
 }
 
 /* Marquee overlay */
@@ -105,26 +102,25 @@
 /* High contrast mode support */
 @media (forced-colors: active) {
   .eg-root:focus-visible {
-    outline: 2px solid Highlight;
+    outline: none;
   }
 
   .eg-item--selected {
-    outline: 3px solid Highlight;
+    box-shadow: 0 0 0 3px Highlight;
     forced-color-adjust: none;
   }
 
   .eg-item--selected::before {
     background: Highlight;
-    opacity: 0.3;
+    opacity: 0.2;
   }
 
   .eg-item--focused {
-    outline: 3px solid ButtonText;
+    box-shadow: 0 0 0 2px Highlight;
   }
 
   .eg-item--focused.eg-item--selected {
-    outline: 3px solid Highlight;
-    box-shadow: inset 0 0 0 3px ButtonText;
+    box-shadow: 0 0 0 2px Highlight, 0 0 0 4px Highlight;
   }
 
   .eg-marquee {

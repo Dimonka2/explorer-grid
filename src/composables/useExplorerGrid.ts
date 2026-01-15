@@ -131,6 +131,12 @@ export function useExplorerGrid<T extends ExplorerGridItem>(
 
   // Combined keydown handler
   const handleKeydown = (e: KeyboardEvent) => {
+    // Don't handle keyboard events from input elements
+    const target = e.target as HTMLElement
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable) {
+      return
+    }
+
     // Let typeahead handle printable characters first
     if (typeahead && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key !== ' ') {
       typeahead.handleKeypress(e)

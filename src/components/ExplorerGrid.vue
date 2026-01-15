@@ -22,6 +22,7 @@ const props = withDefaults(
     clearSelectionOnEmptyClick?: boolean
     rightClickSelect?: boolean
     ariaLabel?: string
+    headerOffset?: number
   }>(),
   {
     itemHeight: 100,
@@ -35,6 +36,7 @@ const props = withDefaults(
     clearSelectionOnEmptyClick: true,
     rightClickSelect: true,
     ariaLabel: 'Item grid',
+    headerOffset: 0,
   }
 )
 
@@ -52,6 +54,9 @@ const emit = defineEmits<{
   selectionChange: [ids: Set<ItemId>]
   focusChange: [id: ItemId | null]
   contextmenu: [event: MouseEvent, selection: Set<ItemId>]
+  scroll: [event: Event]
+  marqueeStart: []
+  marqueeEnd: []
 }>()
 
 // Template refs
@@ -112,6 +117,33 @@ watch(
   virtual.visibleRowCount,
   (rows) => {
     ;(grid as unknown as { _setVisibleRows: (r: number) => void })._setVisibleRows(rows)
+  },
+  { immediate: true }
+)
+
+// Sync external selectedIds changes to internal grid state
+watch(
+  selectedIds,
+  (newIds) => {
+    // Only sync if the external state differs from internal state
+    const internalIds = grid.selectedIds.value
+    if (newIds.size !== internalIds.size || ![...newIds].every(id => internalIds.has(id))) {
+      // Use selectRange to set selection without triggering onSelectionChange callback loop
+      grid.selectedIds.value = new Set(newIds)
+    }
+  },
+  { immediate: true }
+)
+
+// Sync external focusedId changes to internal grid state
+watch(
+  focusedId,
+  (newId) => {
+    if (newId !== grid.focusedId.value) {
+      if (newId !== null) {
+        grid.focusById(newId)
+      }
+    }
   },
   { immediate: true }
 )
@@ -182,6 +214,7 @@ const onPointerDown = (e: PointerEvent) => {
   // Start marquee if clicking empty space
   if (hit.type === 'empty' && marqueeEnabled.value && e.button === 0) {
     marquee.startMarquee(e)
+    emit('marqueeStart')
   }
 
   grid.handlePointerDown(e, hit)
@@ -196,6 +229,7 @@ const onPointerMove = (e: PointerEvent) => {
 const onPointerUp = (e: PointerEvent) => {
   if (marquee.isActive.value) {
     marquee.endMarquee(e)
+    emit('marqueeEnd')
   }
 }
 
@@ -217,6 +251,10 @@ watch(grid.focusedId, (id) => {
 // Resize observer
 let resizeObserver: ResizeObserver | null = null
 
+const onScroll = (e: Event) => {
+  emit('scroll', e)
+}
+
 onMounted(() => {
   updateContainerSize()
 
@@ -226,20 +264,25 @@ onMounted(() => {
 
   if (containerRef.value) {
     resizeObserver.observe(containerRef.value)
+    containerRef.value.addEventListener('scroll', onScroll)
   }
 })
 
 onUnmounted(() => {
   resizeObserver?.disconnect()
+  if (containerRef.value) {
+    containerRef.value.removeEventListener('scroll', onScroll)
+  }
 })
 
 // Get item style - computed based on current props
 // Adds gap offset at top and left to allow marquee selection from before first item
+// Also adds headerOffset to account for header slot content
 const getItemStyle = (rowStart: number, colIndex: number) => {
-  const { itemWidth, itemHeight, gap } = props
+  const { itemWidth, itemHeight, gap, headerOffset } = props
   return {
     position: 'absolute' as const,
-    top: `${rowStart + gap}px`,
+    top: `${rowStart + gap + headerOffset}px`,
     left: `${colIndex * (itemWidth + gap) + gap}px`,
     width: `${itemWidth}px`,
     height: `${itemHeight}px`,
@@ -309,6 +352,12 @@ defineExpose({
   selectAll: grid.selectAll,
   clearSelection: grid.clearSelection,
   focusById: grid.focusById,
+  getScrollPosition: () => containerRef.value?.scrollTop ?? 0,
+  setScrollPosition: (position: number) => {
+    if (containerRef.value) {
+      containerRef.value.scrollTop = position
+    }
+  },
 })
 </script>
 
@@ -334,7 +383,10 @@ defineExpose({
       @contextmenu="onContextMenu"
     >
     <!-- Virtual scroll container -->
-    <div class="eg-scroll-container" :style="{ height: `${virtual.totalHeight.value + gap}px` }">
+    <div class="eg-scroll-container" :style="{ height: `${virtual.totalHeight.value + gap + headerOffset}px` }">
+      <!-- Header slot - rendered above the virtual items -->
+      <slot name="header" />
+
       <template v-for="row in virtual.virtualRows.value" :key="row.index">
         <div
           v-for="vItem in row.items"
