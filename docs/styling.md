@@ -74,7 +74,7 @@ The easiest way to customize the look is via CSS custom properties. Set them on 
 
 | Class | Description |
 |-------|-------------|
-| `.eg-wrapper` | Outer wrapper (uses `display: contents`) |
+| `.eg-wrapper` | Outer wrapper (flex container) |
 | `.eg-root` | Main scrollable container |
 | `.eg-scroll-container` | Inner container with full content height |
 
@@ -98,12 +98,17 @@ The easiest way to customize the look is via CSS custom properties. Set them on 
 
 ### Selection Indicator
 
-The default selection uses an outline and semi-transparent overlay:
+The default selection uses a `box-shadow` ring and semi-transparent overlay:
 
 ```css
-/* Change selection to a solid background */
+/* Change selection ring color */
 .eg-item--selected {
-  outline: none;
+  box-shadow: 0 0 0 3px #ff6600;  /* Orange ring */
+}
+
+/* Change to solid background without overlay */
+.eg-item--selected {
+  box-shadow: none;
   background-color: rgba(0, 120, 212, 0.2);
 }
 
@@ -114,16 +119,22 @@ The default selection uses an outline and semi-transparent overlay:
 
 ### Focus Indicator
 
+The focus indicator also uses `box-shadow` for consistent styling:
+
 ```css
 /* Thicker focus ring */
 .eg-item--focused {
-  outline-width: 4px;
-  outline-offset: 4px;
+  box-shadow: 0 0 0 3px #60a5fa;
+}
+
+/* Combined focus + selected uses layered shadows */
+.eg-item--focused.eg-item--selected {
+  box-shadow: 0 0 0 2px #60a5fa, 0 0 0 4px #0078d4;
 }
 
 /* Focus ring only on keyboard navigation */
 .eg-root:not(:focus-visible) .eg-item--focused {
-  outline: none;
+  box-shadow: none;
 }
 ```
 
@@ -248,15 +259,26 @@ The default styles include support for Windows High Contrast Mode using the `for
 ```css
 @media (forced-colors: active) {
   .eg-item--selected {
-    outline: 3px solid Highlight;
+    box-shadow: 0 0 0 3px Highlight;
+    forced-color-adjust: none;
+  }
+
+  .eg-item--selected::before {
+    background: Highlight;
+    opacity: 0.2;
   }
 
   .eg-item--focused {
-    outline: 3px solid ButtonText;
+    box-shadow: 0 0 0 2px Highlight;
+  }
+
+  .eg-item--focused.eg-item--selected {
+    box-shadow: 0 0 0 2px Highlight, 0 0 0 4px Highlight;
   }
 
   .eg-marquee {
     border: 2px solid Highlight;
+    background: transparent;
   }
 }
 ```

@@ -24,11 +24,18 @@ The main component that provides a virtualized, accessible grid with selection a
   :clear-selection-on-empty-click="true"
   :right-click-select="true"
   :aria-label="'File browser'"
+  :header-offset="40"
   @open="handleOpen"
   @selection-change="handleSelectionChange"
   @focus-change="handleFocusChange"
   @contextmenu="handleContextMenu"
+  @scroll="handleScroll"
+  @marquee-start="handleMarqueeStart"
+  @marquee-end="handleMarqueeEnd"
 >
+  <template #header>
+    <!-- Optional header content -->
+  </template>
   <template #item="{ item, index, selected, focused }">
     <!-- Custom item content -->
   </template>
@@ -56,6 +63,7 @@ The main component that provides a virtualized, accessible grid with selection a
 | `clearSelectionOnEmptyClick` | `boolean` | `true` | Clear selection when clicking empty space |
 | `rightClickSelect` | `boolean` | `true` | Select item on right-click if not already selected |
 | `ariaLabel` | `string` | `'Item grid'` | Accessible label for the grid container |
+| `headerOffset` | `number` | `0` | Height of header slot content (for proper item positioning) |
 
 #### v-model Bindings
 
@@ -72,8 +80,23 @@ The main component that provides a virtualized, accessible grid with selection a
 | `selectionChange` | `(ids: Set<ItemId>)` | Emitted when selection changes |
 | `focusChange` | `(id: ItemId \| null)` | Emitted when focus changes |
 | `contextmenu` | `(event: MouseEvent, selection: Set<ItemId>)` | Emitted on right-click, provides current selection |
+| `scroll` | `(event: Event)` | Emitted when container is scrolled |
+| `marqueeStart` | `()` | Emitted when marquee selection starts |
+| `marqueeEnd` | `()` | Emitted when marquee selection ends |
 
 #### Slots
+
+##### `#header`
+
+Optional slot for header content rendered above the grid items. When using this slot, set the `headerOffset` prop to match the header's height for proper item positioning.
+
+```vue
+<template #header>
+  <div class="grid-toolbar" style="height: 40px">
+    <span>{{ selectedCount }} items selected</span>
+  </div>
+</template>
+```
 
 ##### `#item`
 
@@ -123,6 +146,10 @@ gridRef.value?.clearSelection()
 
 // Focus methods
 gridRef.value?.focusById(id: ItemId)
+
+// Scroll position (for saving/restoring scroll state)
+const pos = gridRef.value?.getScrollPosition()  // Returns number
+gridRef.value?.setScrollPosition(pos)
 ```
 
 ---

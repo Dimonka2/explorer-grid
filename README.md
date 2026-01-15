@@ -84,6 +84,7 @@ const handleOpen = (id: number, item: Item) => {
 | `clearSelectionOnEmptyClick` | `boolean` | `true` | Clear selection when clicking empty space |
 | `rightClickSelect` | `boolean` | `true` | Select item on right-click if not selected |
 | `ariaLabel` | `string` | `'Item grid'` | Accessible label for the grid |
+| `headerOffset` | `number` | `0` | Height of header slot content (for proper item positioning) |
 
 ## v-model
 
@@ -100,8 +101,23 @@ const handleOpen = (id: number, item: Item) => {
 | `selectionChange` | `(ids: Set<ItemId>)` | Selection changed |
 | `focusChange` | `(id: ItemId \| null)` | Focus changed |
 | `contextmenu` | `(event: MouseEvent, selection: Set<ItemId>)` | Right-click context menu |
+| `scroll` | `(event: Event)` | Container scrolled |
+| `marqueeStart` | `()` | Marquee selection started |
+| `marqueeEnd` | `()` | Marquee selection ended |
 
 ## Slots
+
+### `#header`
+
+Optional header content rendered above the grid items. When using this slot, set `headerOffset` prop to the header's height for proper item positioning.
+
+```vue
+<ExplorerGrid :header-offset="40">
+  <template #header>
+    <div style="height: 40px">Header content</div>
+  </template>
+</ExplorerGrid>
+```
 
 ### `#item`
 
@@ -156,6 +172,10 @@ gridRef.value?.clearSelection()
 
 // Focus
 gridRef.value?.focusById(itemId)
+
+// Scroll position (useful for restoring scroll state)
+const pos = gridRef.value?.getScrollPosition()
+gridRef.value?.setScrollPosition(pos)
 </script>
 
 <template>
