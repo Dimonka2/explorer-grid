@@ -7,8 +7,8 @@ The simplest implementation with default settings:
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ExplorerGrid } from 'explorer-grid'
-import 'explorer-grid/styles'
+import { ExplorerGrid } from 'vue-explorer-grid'
+import 'vue-explorer-grid/styles'
 
 interface FileItem {
   id: number
@@ -74,8 +74,8 @@ A media gallery with thumbnails:
 ```vue
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { ExplorerGrid } from 'explorer-grid'
-import 'explorer-grid/styles'
+import { ExplorerGrid } from 'vue-explorer-grid'
+import 'vue-explorer-grid/styles'
 
 interface Photo {
   id: string
@@ -169,8 +169,8 @@ A file browser with icons and metadata:
 ```vue
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { ExplorerGrid } from 'explorer-grid'
-import 'explorer-grid/styles'
+import { ExplorerGrid } from 'vue-explorer-grid'
+import 'vue-explorer-grid/styles'
 
 interface Asset {
   id: string
@@ -306,7 +306,7 @@ For cases where only one item can be selected (like a picker):
 ```vue
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { ExplorerGrid } from 'explorer-grid'
+import { ExplorerGrid } from 'vue-explorer-grid'
 
 const items = ref([/* ... */])
 const selectedIds = ref<Set<number>>(new Set())
@@ -344,7 +344,7 @@ Managing selection externally:
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ExplorerGrid } from 'explorer-grid'
+import { ExplorerGrid } from 'vue-explorer-grid'
 
 const items = ref([/* ... */])
 const selectedIds = ref<Set<number>>(new Set())
@@ -393,7 +393,7 @@ Handling items that change (search, filter, pagination):
 ```vue
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { ExplorerGrid } from 'explorer-grid'
+import { ExplorerGrid } from 'vue-explorer-grid'
 
 const allItems = ref([/* ... */])
 const searchQuery = ref('')
@@ -444,7 +444,7 @@ Using composables directly for full control:
 ```vue
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useExplorerGrid } from 'explorer-grid'
+import { useExplorerGrid } from 'vue-explorer-grid'
 
 interface Item {
   id: number
@@ -517,7 +517,7 @@ If you only need virtualization without selection features:
 ```vue
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useVirtualGrid } from 'explorer-grid'
+import { useVirtualGrid } from 'vue-explorer-grid'
 
 const items = ref([/* large array */])
 const containerRef = ref<HTMLElement>()

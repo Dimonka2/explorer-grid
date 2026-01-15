@@ -161,7 +161,7 @@ gridRef.value?.setScrollPosition(pos)
 The main composable that combines all grid functionality. Use this for headless implementations.
 
 ```ts
-import { useExplorerGrid } from 'explorer-grid'
+import { useExplorerGrid } from 'vue-explorer-grid'
 
 const grid = useExplorerGrid(options)
 ```
@@ -229,7 +229,7 @@ interface UseExplorerGridReturn<T> {
 Manages selection state with support for single and multiple selection.
 
 ```ts
-import { useSelection } from 'explorer-grid'
+import { useSelection } from 'vue-explorer-grid'
 
 const selection = useSelection({
   mode: 'multiple',
@@ -273,7 +273,7 @@ interface UseSelectionReturn {
 Manages focus state and navigation within the grid.
 
 ```ts
-import { useFocus } from 'explorer-grid'
+import { useFocus } from 'vue-explorer-grid'
 
 const focus = useFocus({
   items: itemsRef,
@@ -320,7 +320,7 @@ type NavigationDirection =
 Implements type-to-select functionality.
 
 ```ts
-import { useTypeahead } from 'explorer-grid'
+import { useTypeahead } from 'vue-explorer-grid'
 
 const typeahead = useTypeahead({
   items: itemsRef,
@@ -360,7 +360,7 @@ interface UseTypeaheadReturn {
 Implements rubber-band (marquee) selection with edge auto-scroll.
 
 ```ts
-import { useMarquee } from 'explorer-grid'
+import { useMarquee } from 'vue-explorer-grid'
 
 const marquee = useMarquee({
   containerRef,
@@ -399,7 +399,7 @@ interface MarqueeRect {
 Handles virtualization using @tanstack/vue-virtual.
 
 ```ts
-import { useVirtualGrid } from 'explorer-grid'
+import { useVirtualGrid } from 'vue-explorer-grid'
 
 const virtual = useVirtualGrid({
   containerRef,

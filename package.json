@@ -1,5 +1,5 @@
 {
-  "name": "explorer-grid",
+  "name": "vue-explorer-grid",
   "version": "0.1.0",
   "description": "Vue 3 Explorer-like virtualized grid with keyboard navigation and selection",
   "type": "module",
@@ -68,9 +68,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/anthropics/explorer-grid.git"
+    "url": "git+https://github.com/Dimonka2/explorer-grid.git"
   },
   "bugs": {
-    "url": "https://github.com/anthropics/explorer-grid/issues"
-  }
+    "url": "https://github.com/Dimonka2/explorer-grid/issues"
+  },
+  "homepage": "https://github.com/Dimonka2/explorer-grid#readme"
 }

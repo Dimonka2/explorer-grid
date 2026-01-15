@@ -17,7 +17,7 @@ A high-performance, accessible Vue 3 grid component with Windows Explorer-like k
 ## Installation
 
 ```bash
-npm install explorer-grid
+npm install vue-explorer-grid
 ```
 
 ## Quick Start
@@ -25,8 +25,8 @@ npm install explorer-grid
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ExplorerGrid } from 'explorer-grid'
-import 'explorer-grid/styles'
+import { ExplorerGrid } from 'vue-explorer-grid'
+import 'vue-explorer-grid/styles'
 
 interface Item {
   id: number
@@ -224,7 +224,7 @@ gridRef.value?.setScrollPosition(pos)
 For complete control, use the composables directly:
 
 ```ts
-import { useExplorerGrid } from 'explorer-grid'
+import { useExplorerGrid } from 'vue-explorer-grid'
 
 const grid = useExplorerGrid({
   items: itemsRef,

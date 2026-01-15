@@ -7,13 +7,13 @@ Explorer Grid provides multiple ways to customize its appearance: CSS custom pro
 Import the default styles:
 
 ```ts
-import 'explorer-grid/styles'
+import 'vue-explorer-grid/styles'
 ```
 
 Or import in CSS:
 
 ```css
-@import 'explorer-grid/styles';
+@import 'vue-explorer-grid/styles';
 ```
 
 ## CSS Custom Properties
