@@ -212,8 +212,15 @@ const hitTest = (e: PointerEvent): HitTestResult => {
 const onPointerDown = (e: PointerEvent) => {
   const hit = hitTest(e)
 
-  // Start marquee if clicking empty space
-  if (hit.type === 'empty' && marqueeEnabled.value && e.button === 0) {
+  // Check if click is on scrollbar (not in content area)
+  const container = containerRef.value
+  const isOnScrollbar = container && (
+    e.clientX >= container.getBoundingClientRect().right - (container.offsetWidth - container.clientWidth) ||
+    e.clientY >= container.getBoundingClientRect().bottom - (container.offsetHeight - container.clientHeight)
+  )
+
+  // Start marquee if clicking empty space (but not scrollbar)
+  if (hit.type === 'empty' && marqueeEnabled.value && e.button === 0 && !isOnScrollbar) {
     marquee.startMarquee(e)
     emit('marqueeStart')
   }
@@ -265,15 +272,11 @@ onMounted(() => {
 
   if (containerRef.value) {
     resizeObserver.observe(containerRef.value)
-    containerRef.value.addEventListener('scroll', onScroll)
   }
 })
 
 onUnmounted(() => {
   resizeObserver?.disconnect()
-  if (containerRef.value) {
-    containerRef.value.removeEventListener('scroll', onScroll)
-  }
 })
 
 // Get item style - computed based on current props
@@ -382,6 +385,7 @@ defineExpose({
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
       @contextmenu="onContextMenu"
+      @scroll="onScroll"
     >
     <!-- Virtual scroll container -->
     <div class="eg-scroll-container" :style="{ height: `${virtual.totalHeight.value + gap + headerOffset}px` }">
