@@ -110,6 +110,7 @@ const virtual = useVirtualGrid({
   rowHeight: toRef(props, 'itemHeight'),
   gap: toRef(props, 'gap'),
   overscan: props.overscan,
+  headerOffset: toRef(props, 'headerOffset'),
 })
 
 // Sync visible rows to grid

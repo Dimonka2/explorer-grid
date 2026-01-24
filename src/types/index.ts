@@ -227,6 +227,7 @@ export interface UseVirtualGridOptions {
   rowHeight: Ref<number> | number
   gap?: Ref<number> | number
   overscan?: number
+  headerOffset?: Ref<number> | number
 }
 
 export interface UseVirtualGridReturn {

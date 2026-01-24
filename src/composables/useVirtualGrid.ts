@@ -3,13 +3,14 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import type { UseVirtualGridOptions, UseVirtualGridReturn, VirtualRow, VirtualItem } from '../types'
 
 export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridReturn {
-  const { containerRef, containerHeight, items, columnCount, rowHeight, gap = 0, overscan = 3 } = options
+  const { containerRef, containerHeight, items, columnCount, rowHeight, gap = 0, overscan = 3, headerOffset = 0 } = options
 
   const scrollOffset = ref(0)
 
-  // Reactive row height and gap
+  // Reactive row height, gap, and header offset
   const rowHeightValue = computed(() => toValue(rowHeight))
   const gapValue = computed(() => toValue(gap))
+  const headerOffsetValue = computed(() => toValue(headerOffset))
 
   // Calculate total row count
   const rowCount = computed(() => {
@@ -68,7 +69,34 @@ export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridRe
 
   const scrollToIndex = (index: number, align: 'start' | 'center' | 'end' | 'auto' = 'auto') => {
     const rowIndex = Math.floor(index / columnCount.value)
-    rowVirtualizer.value.scrollToIndex(rowIndex, { align })
+    const container = containerRef.value
+    if (!container) return
+
+    // Calculate actual item position (items are rendered at rowStart + gap + headerOffset)
+    const rowStart = rowIndex * (rowHeightValue.value + gapValue.value)
+    const itemTop = rowStart + gapValue.value + headerOffsetValue.value
+    const itemBottom = itemTop + rowHeightValue.value
+
+    const scrollTop = container.scrollTop
+    const viewportHeight = container.clientHeight
+
+    if (align === 'auto') {
+      // Only scroll if item is not fully visible
+      if (itemTop < scrollTop) {
+        // Item is above viewport - scroll up to show it at top
+        container.scrollTop = itemTop
+      } else if (itemBottom > scrollTop + viewportHeight) {
+        // Item is below viewport - scroll down to show it at bottom
+        container.scrollTop = itemBottom - viewportHeight
+      }
+      // Otherwise item is visible, don't scroll
+    } else if (align === 'start') {
+      container.scrollTop = itemTop
+    } else if (align === 'center') {
+      container.scrollTop = itemTop - (viewportHeight - rowHeightValue.value) / 2
+    } else if (align === 'end') {
+      container.scrollTop = itemBottom - viewportHeight
+    }
   }
 
   const scrollToOffset = (offset: number) => {
@@ -82,8 +110,8 @@ export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridRe
     }
   }
 
-  // Watch for column count, row height, or gap changes to remeasure
-  watch([columnCount, rowHeightValue, gapValue], () => {
+  // Watch for column count, row height, gap, or header offset changes to remeasure
+  watch([columnCount, rowHeightValue, gapValue, headerOffsetValue], () => {
     rowVirtualizer.value.measure()
   })
 
