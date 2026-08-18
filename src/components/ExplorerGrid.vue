@@ -280,13 +280,13 @@ onUnmounted(() => {
 })
 
 // Get item style - computed based on current props
-// Adds gap offset at top and left to allow marquee selection from before first item
-// Also adds headerOffset to account for header slot content
+// Row starts come from the virtualizer, whose scrollMargin already covers the
+// header slot and the leading gap; only the left edge still needs the gap.
 const getItemStyle = (rowStart: number, colIndex: number) => {
-  const { itemWidth, itemHeight, gap, headerOffset } = props
+  const { itemWidth, itemHeight, gap } = props
   return {
     position: 'absolute' as const,
-    top: `${rowStart + gap + headerOffset}px`,
+    top: `${rowStart}px`,
     left: `${colIndex * (itemWidth + gap) + gap}px`,
     width: `${itemWidth}px`,
     height: `${itemHeight}px`,

@@ -17,13 +17,18 @@ export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridRe
     return Math.ceil(items.value.length / columnCount.value)
   })
 
-  // Create virtualizer for rows
+  // Create virtualizer for rows. scrollMargin tells the virtualizer that the
+  // header slot (plus the leading gap) sits before the rows inside the same
+  // scroll container — without it the visible range is computed from the raw
+  // scrollTop and ends up displaced by the header height, unmounting rows that
+  // are actually on screen once the header outgrows overscan * rowSize.
   const rowVirtualizer = useVirtualizer(
     computed(() => ({
       count: rowCount.value,
       getScrollElement: () => containerRef.value,
       estimateSize: () => rowHeightValue.value + gapValue.value,
       overscan,
+      scrollMargin: headerOffsetValue.value + gapValue.value,
     }))
   )
 
