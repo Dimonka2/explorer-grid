@@ -10,7 +10,9 @@ export {
   useTypeahead,
   useMarquee,
   useVirtualGrid,
+  useUniformLayout,
 } from './composables'
+export type { UseUniformLayoutOptions } from './composables'
 
 // Layout (pure functions)
 export {

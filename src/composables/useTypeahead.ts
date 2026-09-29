@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import type { UseTypeaheadOptions, UseTypeaheadReturn } from '../types'
 
 export function useTypeahead<T>(options: UseTypeaheadOptions<T>): UseTypeaheadReturn {
-  const { items, getLabel, focus, debounceMs = 500 } = options
+  const { items, getLabel, focus, debounceMs = 500, isVisible } = options
 
   const currentBuffer = ref('')
   let timeoutId: ReturnType<typeof setTimeout> | null = null
@@ -32,6 +32,7 @@ export function useTypeahead<T>(options: UseTypeaheadOptions<T>): UseTypeaheadRe
 
     // Search from startIndex to end
     for (let i = startIndex; i < itemCount; i++) {
+      if (isVisible && !isVisible(i)) continue
       const label = getLabel(items.value[i]).toLowerCase()
       if (label.startsWith(normalizedSearch)) {
         return i
@@ -40,6 +41,7 @@ export function useTypeahead<T>(options: UseTypeaheadOptions<T>): UseTypeaheadRe
 
     // Wrap around: search from beginning to startIndex
     for (let i = 0; i < startIndex; i++) {
+      if (isVisible && !isVisible(i)) continue
       const label = getLabel(items.value[i]).toLowerCase()
       if (label.startsWith(normalizedSearch)) {
         return i

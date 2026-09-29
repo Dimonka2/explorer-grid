@@ -1,7 +1,7 @@
 import type { ItemId, UseKeyboardOptions, UseKeyboardReturn } from '../types'
 
 export function useKeyboard(options: UseKeyboardOptions): UseKeyboardReturn {
-  const { focus, selection, items, getId, selectionMode, selectOnFocus, visibleRows, onOpen } = options
+  const { focus, selection, items, getId, selectionMode, selectOnFocus, visibleRows, pageSize, layout, onOpen } = options
 
   const multiSelect = selectionMode === 'multiple'
 
@@ -9,7 +9,10 @@ export function useKeyboard(options: UseKeyboardOptions): UseKeyboardReturn {
     const start = Math.min(fromIndex, toIndex)
     const end = Math.max(fromIndex, toIndex)
     const ids: ItemId[] = []
+    const l = layout?.value
     for (let i = start; i <= end; i++) {
+      // Items hidden in collapsed sections are not part of a keyboard range
+      if (l && l.rowOfItem(i) < 0) continue
       ids.push(getId(items.value[i]))
     }
     return ids
@@ -73,7 +76,7 @@ export function useKeyboard(options: UseKeyboardOptions): UseKeyboardReturn {
 
       const newIndex = focus.moveFocus(
         direction as Parameters<typeof focus.moveFocus>[0],
-        visibleRows.value
+        pageSize?.value ?? visibleRows?.value
       )
 
       if (newIndex < 0) return

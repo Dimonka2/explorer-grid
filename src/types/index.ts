@@ -44,7 +44,8 @@ export type NavigationDirection =
 
 // Hit testing
 export interface HitTestResult {
-  type: 'item' | 'empty'
+  /** 'section-header' hits are ignored by the pointer logic (no selection change, no marquee). */
+  type: 'item' | 'empty' | 'section-header'
   itemId?: ItemId
   index?: number
 }
@@ -68,6 +69,10 @@ export interface VirtualRow {
   start: number
   size: number
   items: VirtualItem[]
+  /** Stable row key (see GridLayoutRow.key). */
+  key: string | number
+  kind: GridRowKind
+  section: GridSection
 }
 
 // Composable options
@@ -76,6 +81,8 @@ export interface UseExplorerGridOptions<T extends ExplorerGridItem> {
   getId: (item: T) => ItemId
   getLabel?: (item: T) => string
   columnCount: number | Ref<number> | (() => number)
+  /** Row layout used for navigation. Default: a uniform grid over items and columnCount. */
+  layout?: Ref<GridLayout>
 
   // Feature flags
   // selectionMode: 'none' = no selection, 'single' = one item, 'multiple' = multi-select
@@ -153,7 +160,10 @@ export interface UseSelectionReturn {
 export interface UseFocusOptions<T> {
   items: Ref<T[]>
   getId: (item: T) => ItemId
-  columnCount: Ref<number>
+  /** Used for the default uniform layout when `layout` is not given. */
+  columnCount?: Ref<number>
+  /** Row layout used for navigation; its units define the moveFocus page size. */
+  layout?: Ref<GridLayout>
   onFocusChange?: (id: ItemId | null) => void
 }
 
@@ -163,7 +173,8 @@ export interface UseFocusReturn {
 
   setFocusById: (id: ItemId) => void
   setFocusByIndex: (index: number) => void
-  moveFocus: (direction: NavigationDirection, visibleRows?: number) => number
+  /** `page`: PageUp/PageDown distance in layout units (rows for the default uniform layout, px for a pixel layout). */
+  moveFocus: (direction: NavigationDirection, page?: number) => number
   clearFocus: () => void
 }
 
@@ -173,10 +184,15 @@ export interface UseKeyboardOptions {
   selection: UseSelectionReturn
   items: Ref<unknown[]>
   getId: (item: unknown) => ItemId
-  columnCount: Ref<number>
+  columnCount?: Ref<number>
   selectionMode: SelectionMode
   selectOnFocus: boolean
-  visibleRows: Ref<number>
+  /** Page size passed to focus.moveFocus. Prefer `pageSize`. */
+  visibleRows?: Ref<number>
+  /** Page size passed to focus.moveFocus (layout units); undefined = 5 item rows. */
+  pageSize?: Ref<number | undefined>
+  /** When given, Shift ranges skip items hidden in collapsed sections. */
+  layout?: Ref<GridLayout>
   onOpen?: (id: ItemId) => void
 }
 
@@ -191,6 +207,8 @@ export interface UseTypeaheadOptions<T> {
   getId: (item: T) => ItemId
   focus: UseFocusReturn
   debounceMs?: number
+  /** Only items for which this returns true are matched (e.g. not in a collapsed section). */
+  isVisible?: (index: number) => boolean
 }
 
 export interface UseTypeaheadReturn {
@@ -222,19 +240,29 @@ export interface UseMarqueeReturn {
 export interface UseVirtualGridOptions {
   containerRef: Ref<HTMLElement | null>
   containerHeight: Ref<number>
-  items: Ref<unknown[]>
-  columnCount: Ref<number>
-  rowHeight: Ref<number> | number
+  /** Row layout (px). When omitted, a uniform layout is built from items, columnCount, rowHeight and gap. */
+  layout?: Ref<GridLayout>
+  items?: Ref<unknown[]>
+  columnCount?: Ref<number>
+  rowHeight?: Ref<number> | number
   gap?: Ref<number> | number
   overscan?: number
   headerOffset?: Ref<number> | number
+  /** Height covered by a pinned section header (0 = none). Items under it count as hidden. */
+  stickyHeaderHeight?: Ref<number> | number
 }
 
 export interface UseVirtualGridReturn {
   virtualRows: ComputedRef<VirtualRow[]>
   totalHeight: ComputedRef<number>
   visibleRowCount: ComputedRef<number>
+  /** PageUp/PageDown distance in px: whole rows without sections, the viewport minus a sticky header with them. */
+  pageSize: ComputedRef<number>
+  /** Current scrollTop of the container. */
+  scrollTop: Ref<number>
+  layout: ComputedRef<GridLayout>
   scrollToIndex: (index: number, align?: 'start' | 'center' | 'end' | 'auto') => void
+  scrollToSection: (key: SectionKey, align?: 'start' | 'center' | 'end' | 'auto') => void
   scrollToOffset: (offset: number) => void
 }
 

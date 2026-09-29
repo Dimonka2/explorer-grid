@@ -3,7 +3,9 @@ import { useSelection } from './useSelection'
 import { useFocus } from './useFocus'
 import { useKeyboard } from './useKeyboard'
 import { useTypeahead } from './useTypeahead'
+import { buildUniformLayout } from '../layout/gridLayout'
 import type {
+  GridLayout,
   ItemId,
   ExplorerGridItem,
   UseExplorerGridOptions,
@@ -37,6 +39,14 @@ export function useExplorerGrid<T extends ExplorerGridItem>(
     }
     return toValue(columnCountOption)
   })
+
+  // Row layout for navigation. Without one, a uniform grid with 1-unit rows,
+  // so the page size is a row count exactly as before.
+  const layout: ComputedRef<GridLayout> = computed(() => {
+    if (options.layout) return options.layout.value
+    return buildUniformLayout(toValue(items).length, columnCount.value, 1, 0)
+  })
+  const isIndexVisible = (index: number) => layout.value.rowOfItem(index) >= 0
 
   // Id → Index map for O(1) lookups (rebuilt when items change)
   const idToIndexMap = ref<Map<ItemId, number>>(new Map())
@@ -89,6 +99,7 @@ export function useExplorerGrid<T extends ExplorerGridItem>(
     items: computed(() => toValue(items)),
     getId,
     columnCount,
+    layout,
     onFocusChange,
   })
 
@@ -98,8 +109,9 @@ export function useExplorerGrid<T extends ExplorerGridItem>(
     return getIndexById(focusInternal.focusedId.value)
   })
 
-  // Visible rows (placeholder - will be set by component)
-  const visibleRows = ref(5)
+  // PageUp/PageDown distance in layout units (set by the component).
+  // undefined = 5 item rows.
+  const pageSize = ref<number | undefined>(undefined)
 
   // Keyboard composable
   const keyboard = useKeyboard({
@@ -110,7 +122,8 @@ export function useExplorerGrid<T extends ExplorerGridItem>(
     columnCount,
     selectionMode,
     selectOnFocus,
-    visibleRows,
+    pageSize,
+    layout,
     onOpen: (id) => {
       const item = getItemById(id)
       if (item) {
@@ -126,6 +139,7 @@ export function useExplorerGrid<T extends ExplorerGridItem>(
         getLabel,
         getId,
         focus: focusInternal,
+        isVisible: isIndexVisible,
       })
     : null
 
@@ -212,6 +226,8 @@ export function useExplorerGrid<T extends ExplorerGridItem>(
     const ids: ItemId[] = []
     const itemsValue = toValue(items)
     for (let i = start; i <= end; i++) {
+      // Items hidden in collapsed sections are not part of a range
+      if (!isIndexVisible(i)) continue
       ids.push(getId(itemsValue[i]))
     }
     return ids
@@ -250,7 +266,7 @@ export function useExplorerGrid<T extends ExplorerGridItem>(
 
   // Public focus methods
   const moveFocus = (direction: NavigationDirection) => {
-    return focusInternal.moveFocus(direction, visibleRows.value)
+    return focusInternal.moveFocus(direction, pageSize.value)
   }
 
   const focusByIndex = (index: number) => {
@@ -329,9 +345,16 @@ export function useExplorerGrid<T extends ExplorerGridItem>(
     getIndexById,
     getIdByIndex,
 
-    // Internal: for component to set visible rows
-    _setVisibleRows: (rows: number) => {
-      visibleRows.value = rows
+    // Internal: for the component to set the page size (layout units)
+    _setPageSize: (size: number | undefined) => {
+      pageSize.value = size
     },
-  } as UseExplorerGridReturn<T> & { _setVisibleRows: (rows: number) => void }
+    /** @deprecated use _setPageSize */
+    _setVisibleRows: (rows: number) => {
+      pageSize.value = rows
+    },
+  } as UseExplorerGridReturn<T> & {
+    _setPageSize: (size: number | undefined) => void
+    _setVisibleRows: (rows: number) => void
+  }
 }

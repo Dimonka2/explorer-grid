@@ -1,21 +1,44 @@
 import { computed, ref, watch, onMounted, onUnmounted, toValue } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
-import type { UseVirtualGridOptions, UseVirtualGridReturn, VirtualRow, VirtualItem } from '../types'
+import { buildUniformLayout, scrollTopForItem, scrollTopForSection } from '../layout/gridLayout'
+import type { ScrollAlign } from '../layout/gridLayout'
+import type {
+  GridLayout,
+  SectionKey,
+  UseVirtualGridOptions,
+  UseVirtualGridReturn,
+  VirtualRow,
+  VirtualItem,
+} from '../types'
 
 export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridReturn {
-  const { containerRef, containerHeight, items, columnCount, rowHeight, gap = 0, overscan = 3, headerOffset = 0 } = options
+  const {
+    containerRef,
+    containerHeight,
+    items,
+    columnCount,
+    rowHeight = 0,
+    gap = 0,
+    overscan = 3,
+    headerOffset = 0,
+    stickyHeaderHeight = 0,
+  } = options
 
   const scrollOffset = ref(0)
 
-  // Reactive row height, gap, and header offset
-  const rowHeightValue = computed(() => toValue(rowHeight))
+  // Reactive gap, header offset and sticky header height
   const gapValue = computed(() => toValue(gap))
   const headerOffsetValue = computed(() => toValue(headerOffset))
+  const stickyHeightValue = computed(() => toValue(stickyHeaderHeight))
 
-  // Calculate total row count
-  const rowCount = computed(() => {
-    return Math.ceil(items.value.length / columnCount.value)
+  // The row layout: given by the caller, or the uniform grid over the items.
+  const layout = computed<GridLayout>(() => {
+    if (options.layout) return options.layout.value
+    return buildUniformLayout(items?.value.length ?? 0, columnCount?.value ?? 1, toValue(rowHeight), gapValue.value)
   })
+
+  // Offset of the first row inside the scroll content
+  const margin = computed(() => headerOffsetValue.value + gapValue.value)
 
   // Create virtualizer for rows. scrollMargin tells the virtualizer that the
   // header slot (plus the leading gap) sits before the rows inside the same
@@ -23,13 +46,16 @@ export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridRe
   // scrollTop and ends up displaced by the header height, unmounting rows that
   // are actually on screen once the header outgrows overscan * rowSize.
   const rowVirtualizer = useVirtualizer(
-    computed(() => ({
-      count: rowCount.value,
-      getScrollElement: () => containerRef.value,
-      estimateSize: () => rowHeightValue.value + gapValue.value,
-      overscan,
-      scrollMargin: headerOffsetValue.value + gapValue.value,
-    }))
+    computed(() => {
+      const l = layout.value
+      return {
+        count: l.rowCount,
+        getScrollElement: () => containerRef.value,
+        estimateSize: (i: number) => l.rowHeightAt(i),
+        overscan,
+        scrollMargin: margin.value,
+      }
+    })
   )
 
   // Total height for the scroll container
@@ -39,69 +65,79 @@ export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridRe
 
   // Visible row count (for page navigation) - uses reactive containerHeight
   const visibleRowCount = computed(() => {
+    const l = layout.value
     if (containerHeight.value === 0) return 5
-    return Math.ceil(containerHeight.value / (rowHeightValue.value + gapValue.value))
+    return Math.ceil(containerHeight.value / (l.rowHeight + l.gap))
+  })
+
+  // Page size in px. Without sections it is whole item rows, which keeps
+  // PageUp/PageDown identical to the classic `±cols × visibleRows`.
+  const pageSize = computed(() => {
+    const l = layout.value
+    const rowSize = l.rowHeight + l.gap
+    if (!l.sectioned) return visibleRowCount.value * rowSize
+    if (containerHeight.value === 0) return 5 * rowSize
+    return Math.max(rowSize, containerHeight.value - stickyHeightValue.value)
   })
 
   // Map virtual rows to our format with item indices
   const virtualRows = computed<VirtualRow[]>(() => {
+    const l = layout.value
     const virtualItems = rowVirtualizer.value.getVirtualItems()
-    const cols = columnCount.value
-    const totalItems = items.value.length
+    const rows: VirtualRow[] = []
 
-    return virtualItems.map((vRow) => {
+    for (const vRow of virtualItems) {
+      // The virtualizer can lag one tick behind a shrinking layout
+      if (vRow.index >= l.rowCount) continue
+      const row = l.getRow(vRow.index)
       const rowItems: VirtualItem[] = []
-      const rowStartIndex = vRow.index * cols
-
-      for (let col = 0; col < cols; col++) {
-        const itemIndex = rowStartIndex + col
-        if (itemIndex < totalItems) {
-          rowItems.push({
-            index: itemIndex,
-            columnIndex: col,
-          })
+      if (row.kind === 'items') {
+        for (let i = row.first; i <= row.last; i++) {
+          rowItems.push({ index: i, columnIndex: i - row.first })
         }
       }
-
-      return {
+      rows.push({
         index: vRow.index,
         start: vRow.start,
         size: vRow.size,
         items: rowItems,
-      }
-    })
+        key: row.key,
+        kind: row.kind,
+        section: row.section,
+      })
+    }
+    return rows
   })
 
-  const scrollToIndex = (index: number, align: 'start' | 'center' | 'end' | 'auto' = 'auto') => {
-    const rowIndex = Math.floor(index / columnCount.value)
+  const applyScrollTop = (target: number | null) => {
+    const container = containerRef.value
+    if (!container || target === null) return
+    container.scrollTop = target
+  }
+
+  const scrollToIndex = (index: number, align: ScrollAlign = 'auto') => {
     const container = containerRef.value
     if (!container) return
+    applyScrollTop(
+      scrollTopForItem(layout.value, index, align, {
+        scrollTop: container.scrollTop,
+        viewportHeight: container.clientHeight,
+        margin: margin.value,
+        stickyHeight: layout.value.sectioned ? stickyHeightValue.value : 0,
+      })
+    )
+  }
 
-    // Calculate actual item position (items are rendered at rowStart + gap + headerOffset)
-    const rowStart = rowIndex * (rowHeightValue.value + gapValue.value)
-    const itemTop = rowStart + gapValue.value + headerOffsetValue.value
-    const itemBottom = itemTop + rowHeightValue.value
-
-    const scrollTop = container.scrollTop
-    const viewportHeight = container.clientHeight
-
-    if (align === 'auto') {
-      // Only scroll if item is not fully visible
-      if (itemTop < scrollTop) {
-        // Item is above viewport - scroll up to show it at top
-        container.scrollTop = itemTop
-      } else if (itemBottom > scrollTop + viewportHeight) {
-        // Item is below viewport - scroll down to show it at bottom
-        container.scrollTop = itemBottom - viewportHeight
-      }
-      // Otherwise item is visible, don't scroll
-    } else if (align === 'start') {
-      container.scrollTop = itemTop
-    } else if (align === 'center') {
-      container.scrollTop = itemTop - (viewportHeight - rowHeightValue.value) / 2
-    } else if (align === 'end') {
-      container.scrollTop = itemBottom - viewportHeight
-    }
+  const scrollToSection = (key: SectionKey, align: ScrollAlign = 'start') => {
+    const container = containerRef.value
+    if (!container) return
+    applyScrollTop(
+      scrollTopForSection(layout.value, key, align, {
+        scrollTop: container.scrollTop,
+        viewportHeight: container.clientHeight,
+        margin: margin.value,
+      })
+    )
   }
 
   const scrollToOffset = (offset: number) => {
@@ -115,8 +151,9 @@ export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridRe
     }
   }
 
-  // Watch for column count, row height, gap, or header offset changes to remeasure
-  watch([columnCount, rowHeightValue, gapValue, headerOffsetValue], () => {
+  // Remeasure whenever the rows change (new runs, a collapse, a column change,
+  // a height change) or the header offset moves them.
+  watch([layout, headerOffsetValue], () => {
     rowVirtualizer.value.measure()
   })
 
@@ -133,7 +170,11 @@ export function useVirtualGrid(options: UseVirtualGridOptions): UseVirtualGridRe
     virtualRows,
     totalHeight,
     visibleRowCount,
+    pageSize,
+    scrollTop: scrollOffset,
+    layout,
     scrollToIndex,
+    scrollToSection,
     scrollToOffset,
   }
 }

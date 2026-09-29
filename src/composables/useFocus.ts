@@ -1,8 +1,13 @@
 import { ref, computed } from 'vue'
+import { buildUniformLayout } from '../layout/gridLayout'
 import type { ItemId, NavigationDirection, UseFocusOptions, UseFocusReturn } from '../types'
 
 export function useFocus<T>(options: UseFocusOptions<T>): UseFocusReturn {
   const { items, getId, columnCount, onFocusChange } = options
+
+  // Without an explicit layout, navigate a uniform grid whose rows are 1 unit
+  // tall: the page argument of moveFocus is then a number of rows, as before.
+  const layout = options.layout ?? computed(() => buildUniformLayout(items.value.length, columnCount?.value ?? 1, 1, 0))
 
   const focusedId = ref<ItemId | null>(null)
 
@@ -35,64 +40,16 @@ export function useFocus<T>(options: UseFocusOptions<T>): UseFocusReturn {
     notifyChange()
   }
 
-  const calculateTargetIndex = (
-    currentIndex: number,
-    direction: NavigationDirection,
-    cols: number,
-    totalItems: number,
-    visibleRows: number = 5
-  ): number => {
-    if (totalItems === 0) return -1
-    if (currentIndex < 0) return 0
-
-    switch (direction) {
-      case 'left':
-        return Math.max(0, currentIndex - 1)
-
-      case 'right':
-        return Math.min(totalItems - 1, currentIndex + 1)
-
-      case 'up':
-        return Math.max(0, currentIndex - cols)
-
-      case 'down':
-        return Math.min(totalItems - 1, currentIndex + cols)
-
-      case 'home':
-        // Start of current row
-        return currentIndex - (currentIndex % cols)
-
-      case 'end': {
-        // End of current row
-        const rowStart = currentIndex - (currentIndex % cols)
-        return Math.min(totalItems - 1, rowStart + cols - 1)
-      }
-
-      case 'home-global':
-        return 0
-
-      case 'end-global':
-        return totalItems - 1
-
-      case 'pageUp':
-        return Math.max(0, currentIndex - cols * visibleRows)
-
-      case 'pageDown':
-        return Math.min(totalItems - 1, currentIndex + cols * visibleRows)
-
-      default:
-        return currentIndex
-    }
-  }
-
-  const moveFocus = (direction: NavigationDirection, visibleRows: number = 5): number => {
+  /**
+   * Move focus. `page` is the PageUp/PageDown distance in layout units: rows
+   * for the default uniform layout, pixels when a `layout` option is given.
+   */
+  const moveFocus = (direction: NavigationDirection, page?: number): number => {
     const totalItems = items.value.length
     if (totalItems === 0) return -1
 
     const currentIndex = focusedIndex.value
-    const cols = columnCount.value
-
-    const targetIndex = calculateTargetIndex(currentIndex, direction, cols, totalItems, visibleRows)
+    const targetIndex = layout.value.navigate(currentIndex, direction, page)
 
     if (targetIndex !== currentIndex && targetIndex >= 0) {
       setFocusByIndex(targetIndex)
