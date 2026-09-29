@@ -1,9 +1,24 @@
 <script setup lang="ts" generic="T extends ExplorerGridItem">
-import { ref, computed, toRef, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, toRef, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useExplorerGrid } from '../composables/useExplorerGrid'
 import { useVirtualGrid } from '../composables/useVirtualGrid'
 import { useMarquee } from '../composables/useMarquee'
-import type { ItemId, ExplorerGridItem, SelectionMode, HitTestResult } from '../types'
+import {
+  buildGridLayout,
+  buildUniformLayout,
+  computeSectionRuns,
+  DEFAULT_SECTION_HEADER_HEIGHT,
+} from '../layout/gridLayout'
+import type { ScrollAlign } from '../layout/gridLayout'
+import type {
+  ItemId,
+  ExplorerGridItem,
+  SelectionMode,
+  HitTestResult,
+  GridLayout,
+  GridSection,
+  SectionKey,
+} from '../types'
 
 // Props
 const props = withDefaults(
@@ -23,6 +38,14 @@ const props = withDefaults(
     rightClickSelect?: boolean
     ariaLabel?: string
     headerOffset?: number
+    /** Section of an item. Consecutive items with an equal key form one section. Omitted = no sections. */
+    sectionKey?: (item: T) => SectionKey
+    /** Height of a section header row in px. */
+    sectionHeaderHeight?: number
+    /** Pin the current section's header at the top while scrolling. */
+    stickySectionHeaders?: boolean
+    /** Label announced when focus moves into a section (default: the key). */
+    getSectionLabel?: (section: GridSection) => string
   }>(),
   {
     itemHeight: 100,
@@ -37,6 +60,10 @@ const props = withDefaults(
     rightClickSelect: true,
     ariaLabel: 'Item grid',
     headerOffset: 0,
+    sectionKey: undefined,
+    sectionHeaderHeight: DEFAULT_SECTION_HEADER_HEIGHT,
+    stickySectionHeaders: true,
+    getSectionLabel: undefined,
   }
 )
 
@@ -46,6 +73,10 @@ const selectedIds = defineModel<Set<ItemId>>('selectedIds', {
 })
 const focusedId = defineModel<ItemId | null>('focusedId', {
   default: null,
+})
+/** Keys of collapsed sections. A key that matches no section is kept (it may load later). */
+const collapsedSections = defineModel<Set<SectionKey>>('collapsedSections', {
+  default: () => new Set(),
 })
 
 // Emits
@@ -57,6 +88,7 @@ const emit = defineEmits<{
   scroll: [event: Event]
   marqueeStart: []
   marqueeEnd: []
+  sectionToggle: [key: SectionKey, collapsed: boolean]
 }>()
 
 // Template refs
@@ -78,12 +110,35 @@ const columnCount = computed(() => {
   return Math.max(1, Math.floor((containerWidth.value + props.gap) / (props.itemWidth + props.gap)))
 })
 
+// Sections: runs are recomputed only when the items or sectionKey change;
+// the layout also follows collapse state, columns and heights.
+const runs = computed(() => (props.sectionKey ? computeSectionRuns(props.items, props.sectionKey) : null))
+
+const layout = computed<GridLayout>(() => {
+  const r = runs.value
+  if (!r) return buildUniformLayout(props.items.length, columnCount.value, props.itemHeight, props.gap)
+  return buildGridLayout({
+    runs: r,
+    columnCount: columnCount.value,
+    collapsed: collapsedSections.value,
+    headerHeight: props.sectionHeaderHeight,
+    rowHeight: props.itemHeight,
+    gap: props.gap,
+  })
+})
+
+const isSectioned = computed(() => layout.value.sectioned)
+const stickyHeight = computed(() =>
+  isSectioned.value && props.stickySectionHeaders ? props.sectionHeaderHeight : 0
+)
+
 // Main grid composable
 const grid = useExplorerGrid({
   items: toRef(props, 'items'),
   getId: props.getId,
   getLabel: props.getLabel,
   columnCount,
+  layout,
   selectionMode: props.selectionMode,
   marqueeEnabled: props.marqueeEnabled,
   typeaheadEnabled: props.typeaheadEnabled,
@@ -105,19 +160,18 @@ const grid = useExplorerGrid({
 const virtual = useVirtualGrid({
   containerRef,
   containerHeight,
-  items: toRef(props, 'items'),
-  columnCount,
-  rowHeight: toRef(props, 'itemHeight'),
+  layout,
   gap: toRef(props, 'gap'),
   overscan: props.overscan,
   headerOffset: toRef(props, 'headerOffset'),
+  stickyHeaderHeight: stickyHeight,
 })
 
-// Sync visible rows to grid
+// Sync the PageUp/PageDown distance (px) to the grid
 watch(
-  virtual.visibleRowCount,
-  (rows) => {
-    ;(grid as unknown as { _setVisibleRows: (r: number) => void })._setVisibleRows(rows)
+  virtual.pageSize,
+  (size) => {
+    ;(grid as unknown as { _setPageSize: (s: number) => void })._setPageSize(size)
   },
   { immediate: true }
 )
@@ -142,7 +196,7 @@ watch(
   (newId) => {
     if (newId !== grid.focusedId.value) {
       if (newId !== null) {
-        grid.focusById(newId)
+        focusByIdRevealing(newId)
       }
     }
   },
@@ -198,6 +252,11 @@ const marquee = useMarquee({
 // Event handlers
 const hitTest = (e: PointerEvent): HitTestResult => {
   const target = e.target as HTMLElement
+  // Section headers first: they are neither items nor empty space
+  if (target.closest('[data-eg-section-header]')) {
+    return { type: 'section-header' }
+  }
+
   const itemEl = target.closest('[data-eg-item]') as HTMLElement | null
 
   if (itemEl) {
@@ -211,6 +270,9 @@ const hitTest = (e: PointerEvent): HitTestResult => {
 
 const onPointerDown = (e: PointerEvent) => {
   const hit = hitTest(e)
+
+  // A header click neither selects, clears the selection, nor starts a marquee
+  if (hit.type === 'section-header') return
 
   // Check if click is on scrollbar (not in content area)
   const container = containerRef.value
@@ -250,11 +312,171 @@ watch(grid.focusedId, (id) => {
   if (id !== null && containerRef.value) {
     const index = grid.getIndexById(id)
     if (index >= 0) {
+      if (layout.value.rowOfItem(index) < 0) {
+        // Hidden in a collapsed section that is being expanded: scroll once it renders
+        pendingRevealId = id
+        return
+      }
       // Use 'auto' alignment - only scrolls if item is outside viewport
       virtual.scrollToIndex(index, 'auto')
     }
   }
 })
+
+// ---- Sections ----
+
+let pendingRevealId: ItemId | null = null
+
+const setSectionCollapsed = (key: SectionKey, collapsed: boolean) => {
+  const current = collapsedSections.value
+  if (current.has(key) === collapsed) return
+
+  // Collapsing the section we are scrolled into (its header is above the top):
+  // bring its header to the top afterwards, so the view does not land in the
+  // middle of whatever section follows.
+  let scrollHeaderIntoView = false
+  const section = layout.value.sectionByKey(key)
+  const container = containerRef.value
+  if (collapsed && section && container) {
+    const headerRow = layout.value.headerRowOf(section.index)
+    const headerTop = layout.value.rowStart(headerRow) + props.headerOffset + props.gap
+    scrollHeaderIntoView = headerRow >= 0 && headerTop < container.scrollTop
+  }
+
+  const next = new Set(current)
+  if (collapsed) next.add(key)
+  else next.delete(key)
+  collapsedSections.value = next
+  emit('sectionToggle', key, collapsed)
+
+  if (scrollHeaderIntoView) {
+    nextTick(() => virtual.scrollToSection(key, 'start'))
+  }
+}
+
+const toggleSection = (key: SectionKey) => {
+  setSectionCollapsed(key, !collapsedSections.value.has(key))
+}
+
+/** Focus an item; an item inside a collapsed section expands that section first. */
+const focusByIdRevealing = (id: ItemId) => {
+  const index = grid.getIndexById(id)
+  if (index >= 0 && layout.value.rowOfItem(index) < 0) {
+    const section = layout.value.sectionOfItem(index)
+    if (section) setSectionCollapsed(section.key, false)
+  }
+  grid.focusById(id)
+}
+
+// When the layout changes: finish a pending reveal, and move focus out of a
+// section that was just collapsed (first item of the next visible section,
+// else of the previous one). The anchor is kept.
+watch(
+  layout,
+  (l) => {
+    if (pendingRevealId !== null) {
+      const revealIndex = grid.getIndexById(pendingRevealId)
+      if (revealIndex < 0 || l.rowOfItem(revealIndex) >= 0) {
+        pendingRevealId = null
+        if (revealIndex >= 0) virtual.scrollToIndex(revealIndex, 'auto')
+      } else if (grid.focusedId.value === pendingRevealId) {
+        return // still waiting for the section to expand
+      }
+    }
+    const index = grid.focusedIndex.value
+    if (index < 0 || l.rowOfItem(index) >= 0) return
+    const section = l.sectionOfItem(index)
+    if (!section) return
+    let target = -1
+    for (let s = section.index + 1; s < l.sections.length && target < 0; s++) {
+      if (!l.isCollapsed(s)) target = l.sections[s].start
+    }
+    for (let s = section.index - 1; s >= 0 && target < 0; s--) {
+      if (!l.isCollapsed(s)) target = l.sections[s].start
+    }
+    if (target >= 0) grid.focusByIndex(target)
+  },
+  { flush: 'post' }
+)
+
+// How many of each section's items are selected
+const sectionSelectedCounts = computed(() => {
+  const l = layout.value
+  const counts = new Array<number>(l.sections.length).fill(0)
+  if (!l.sectioned) return counts
+  for (const id of grid.selectedIds.value) {
+    const section = l.sectionOfItem(grid.getIndexById(id))
+    if (section) counts[section.index]++
+  }
+  return counts
+})
+
+const setSelection = (next: Set<ItemId>) => {
+  grid.selectedIds.value = next
+  selectedIds.value = next
+  emit('selectionChange', next)
+}
+
+const selectSection = (section: GridSection, mode: 'replace' | 'add' | 'remove') => {
+  if (props.selectionMode !== 'multiple') return
+  const ids: ItemId[] = []
+  for (let i = section.start; i < section.start + section.count; i++) ids.push(props.getId(props.items[i]))
+  let next: Set<ItemId>
+  if (mode === 'replace') {
+    next = new Set(ids)
+  } else if (mode === 'add') {
+    next = new Set(grid.selectedIds.value)
+    for (const id of ids) next.add(id)
+  } else {
+    next = new Set(grid.selectedIds.value)
+    for (const id of ids) next.delete(id)
+  }
+  setSelection(next)
+}
+
+const sectionHeaderProps = (section: GridSection, sticky: boolean) => ({
+  section,
+  collapsed: layout.value.isCollapsed(section.index),
+  selectedCount: sectionSelectedCounts.value[section.index] ?? 0,
+  sticky,
+  toggle: () => toggleSection(section.key),
+  selectSection: (mode: 'replace' | 'add' | 'remove') => selectSection(section, mode),
+})
+
+const getSectionHeaderStyle = (rowStart: number) => ({
+  position: 'absolute' as const,
+  top: `${rowStart}px`,
+  left: `${props.gap}px`,
+  right: `${props.gap}px`,
+  height: `${props.sectionHeaderHeight}px`,
+})
+
+const isEditableTarget = (target: EventTarget | null) => {
+  const el = target as HTMLElement | null
+  if (!el || !el.tagName) return false
+  return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable
+}
+
+// Keyboard: numpad - / + collapse / expand the focused item's section
+const onKeydown = (e: KeyboardEvent) => {
+  if (
+    isSectioned.value &&
+    (e.code === 'NumpadSubtract' || e.code === 'NumpadAdd') &&
+    !e.ctrlKey &&
+    !e.metaKey &&
+    !e.altKey &&
+    !isEditableTarget(e.target)
+  ) {
+    const index = grid.focusedIndex.value
+    const section = index >= 0 ? layout.value.sectionOfItem(index) : undefined
+    if (section) {
+      e.preventDefault()
+      setSectionCollapsed(section.key, e.code === 'NumpadSubtract')
+      return
+    }
+  }
+  grid.handleKeydown(e)
+}
 
 // Resize observer
 let resizeObserver: ResizeObserver | null = null
@@ -355,7 +577,10 @@ defineExpose({
   },
   selectAll: grid.selectAll,
   clearSelection: grid.clearSelection,
-  focusById: grid.focusById,
+  focusById: focusByIdRevealing,
+  setSectionCollapsed,
+  scrollToSection: (key: SectionKey, align: ScrollAlign = 'start') => virtual.scrollToSection(key, align),
+  getSections: (): GridSection[] => layout.value.sections.slice(),
   getScrollPosition: () => containerRef.value?.scrollTop ?? 0,
   setScrollPosition: (position: number) => {
     if (containerRef.value) {
@@ -380,7 +605,7 @@ defineExpose({
       :aria-label="ariaLabel"
       :aria-multiselectable="selectionMode === 'multiple'"
       :aria-activedescendant="activeDescendantId"
-      @keydown="grid.handleKeydown"
+      @keydown="onKeydown"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
@@ -392,7 +617,40 @@ defineExpose({
       <!-- Header slot - rendered above the virtual items -->
       <slot name="header" />
 
-      <template v-for="row in virtual.virtualRows.value" :key="row.index">
+      <template v-for="row in virtual.virtualRows.value" :key="row.key">
+        <!--
+          Section header row: presentation only, not an option. aria-hidden
+          because a listbox may own only options (axe aria-required-children
+          flags the header's buttons otherwise); section changes are announced
+          through the live region instead.
+        -->
+        <div
+          v-if="row.kind === 'header'"
+          :class="[
+            'eg-section-header',
+            { 'eg-section-header--collapsed': layout.isCollapsed(row.section.index) },
+          ]"
+          :style="getSectionHeaderStyle(row.start)"
+          role="presentation"
+          aria-hidden="true"
+          :data-eg-section-header="String(row.section.key)"
+        >
+          <slot name="section-header" v-bind="sectionHeaderProps(row.section, false)">
+            <span class="eg-section-header__label">{{ String(row.section.key) }}</span>
+            <span class="eg-section-header__count">{{ row.section.count }}</span>
+            <button
+              type="button"
+              tabindex="-1"
+              class="eg-section-header__toggle"
+              :aria-expanded="!layout.isCollapsed(row.section.index)"
+              :aria-label="layout.isCollapsed(row.section.index) ? 'Expand section' : 'Collapse section'"
+              @click="toggleSection(row.section.key)"
+            >
+              {{ layout.isCollapsed(row.section.index) ? '▸' : '▾' }}
+            </button>
+          </slot>
+        </div>
+        <!-- Item row (a header row has no items) -->
         <div
           v-for="vItem in row.items"
           :key="vItem.index"

@@ -140,3 +140,52 @@
  * --eg-marquee-bg: Marquee background (default: rgba(0, 102, 204, 0.1))
  * --eg-empty-color: Empty state text color (default: #666)
  */
+
+/* Section headers (grids with a sectionKey) */
+.eg-section-header {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: var(--eg-section-header-bg, #f3f4f6);
+  border-bottom: 1px solid var(--eg-section-header-border, #e5e7eb);
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  cursor: default;
+  z-index: 2;
+}
+
+.eg-section-header__count {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.eg-section-header__toggle {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+/* Pinned copy of the current section's header */
+.eg-section-sticky {
+  position: sticky;
+  top: 0;
+  height: 0;
+  overflow: visible;
+  z-index: 3;
+}
+
+.eg-section-header--sticky {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Section CSS Custom Properties:
+ * --eg-section-header-bg: Header background, opaque so the pinned header covers items (default: #f3f4f6)
+ * --eg-section-header-border: Header bottom border (default: #e5e7eb)
+ */
