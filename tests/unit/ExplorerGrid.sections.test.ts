@@ -256,8 +256,85 @@ describe('ExplorerGrid sections', () => {
     expect(root.scrollTop).toBe(404)
   })
 
+  describe('sticky header', () => {
+    const scrollTo = async (w: VueWrapper, top: number) => {
+      const root = w.find('.eg-root').element as HTMLElement
+      root.scrollTop = top
+      root.dispatchEvent(new Event('scroll'))
+      await nextTick()
+    }
+    // Content offsets (first row at 8): h:06 8, h:05 260, h:04 404
+
+    it('is hidden at the top', async () => {
+      const w = await mountGrid()
+      expect(w.find('.eg-section-header--sticky').exists()).toBe(false)
+    })
+
+    it('pins the section at the scroll offset', async () => {
+      const w = await mountGrid()
+      await scrollTo(w, 300)
+      const sticky = w.find('.eg-section-header--sticky')
+      expect(sticky.attributes('data-eg-section-header')).toBe('2019-05')
+      expect(sticky.attributes('style')).not.toContain('translateY')
+      expect(w.find('.eg-section-sticky').attributes('aria-hidden')).toBe('true')
+    })
+
+    it('is pushed out by the next header', async () => {
+      const w = await mountGrid()
+      // y = 380 - 8 = 372; next header at 396 → 24 px away → pushed up 12
+      await scrollTo(w, 380)
+      const sticky = w.find('.eg-section-header--sticky')
+      expect(sticky.attributes('data-eg-section-header')).toBe('2019-05')
+      expect(sticky.attributes('style')).toContain('translateY(-12px)')
+    })
+
+    it('passes sticky: true to the slot', async () => {
+      const w = await mountGrid(
+        {},
+        { 'section-header': (p: { sticky: boolean; section: GridSection }) => h('span', { class: p.sticky ? 'pinned' : 'inline' }, String(p.section.key)) }
+      )
+      await scrollTo(w, 300)
+      expect(w.find('.pinned').text()).toBe('2019-05')
+    })
+
+    it('is off with stickySectionHeaders=false', async () => {
+      const w = await mountGrid({ stickySectionHeaders: false })
+      await scrollTo(w, 300)
+      expect(w.find('.eg-section-header--sticky').exists()).toBe(false)
+    })
+
+    it('a pointerdown on the pinned header does nothing', async () => {
+      const w = await mountGrid({ selectedIds: new Set([2]) })
+      await scrollTo(w, 300)
+      w.find('.eg-section-header--sticky .eg-section-header__label').element.dispatchEvent(
+        new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 50, clientY: 10 })
+      )
+      await nextTick()
+      expect(w.emitted('selectionChange')).toBeUndefined()
+      expect(w.emitted('marqueeStart')).toBeUndefined()
+    })
+  })
+
+  it('announces the section when focus moves into another one', async () => {
+    const w = await mountGrid({
+      getSectionLabel: (s: GridSection) => `${s.key}, ${s.count} items`,
+    })
+    exposed(w).focusById(5)
+    await nextTick()
+    const live = w.find('[aria-live="polite"]')
+    expect(live.text()).toBe('2019-06, 5 items')
+    await press(w, { key: 'ArrowRight' })
+    expect(live.text()).toBe('2019-05, 3 items')
+  })
+
   it('a sectioned grid has no axe violations', async () => {
     const w = await mountGrid({}, { item: ({ item }: { item: Photo }) => h('span', item.name) })
+    // include the pinned header in the check
+    const root = w.find('.eg-root').element as HTMLElement
+    root.scrollTop = 300
+    root.dispatchEvent(new Event('scroll'))
+    await nextTick()
+    expect(w.find('.eg-section-header--sticky').exists()).toBe(true)
     const results = await axe(w.element)
     expect(results).toHaveNoViolations()
   })

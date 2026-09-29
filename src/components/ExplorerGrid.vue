@@ -7,6 +7,7 @@ import {
   buildGridLayout,
   buildUniformLayout,
   computeSectionRuns,
+  stickyHeaderState,
   DEFAULT_SECTION_HEADER_HEIGHT,
 } from '../layout/gridLayout'
 import type { ScrollAlign } from '../layout/gridLayout'
@@ -443,6 +444,23 @@ const sectionHeaderProps = (section: GridSection, sticky: boolean) => ({
   selectSection: (mode: 'replace' | 'add' | 'remove') => selectSection(section, mode),
 })
 
+// Sticky header: which section is pinned at the current scroll position and
+// how far the next header has pushed it up. The overlay itself is CSS sticky.
+const stickyState = computed(() => {
+  if (!props.stickySectionHeaders || !isSectioned.value) return null
+  const y = virtual.scrollTop.value - (props.headerOffset + props.gap)
+  return stickyHeaderState(layout.value, y)
+})
+
+const stickyHeaderStyle = computed(() => ({
+  position: 'absolute' as const,
+  top: '0px',
+  left: `${props.gap}px`,
+  right: `${props.gap}px`,
+  height: `${props.sectionHeaderHeight}px`,
+  transform: stickyState.value?.offset ? `translateY(-${stickyState.value.offset}px)` : undefined,
+}))
+
 const getSectionHeaderStyle = (rowStart: number) => ({
   position: 'absolute' as const,
   top: `${rowStart}px`,
@@ -562,6 +580,22 @@ watch(
   }
 )
 
+// Announce the section when focus moves into another one
+const focusedSection = computed(() => {
+  const index = grid.focusedIndex.value
+  if (index < 0 || !isSectioned.value) return undefined
+  return layout.value.sectionOfItem(index)
+})
+
+watch(
+  () => focusedSection.value?.key,
+  (key, oldKey) => {
+    const section = focusedSection.value
+    if (key === undefined || key === oldKey || !section) return
+    announcement.value = props.getSectionLabel ? props.getSectionLabel(section) : String(section.key)
+  }
+)
+
 onUnmounted(() => {
   if (announcementTimeout) {
     clearTimeout(announcementTimeout)
@@ -614,6 +648,44 @@ defineExpose({
     >
     <!-- Virtual scroll container -->
     <div class="eg-scroll-container" :style="{ height: `${virtual.totalHeight.value + gap + headerOffset}px` }">
+      <!--
+        Pinned section header: a zero-height CSS-sticky wrapper, so it takes no
+        space and needs no scroll-driven positioning; only the push-out offset
+        follows the scroll position.
+      -->
+      <div
+        v-if="stickyState"
+        class="eg-section-sticky"
+        style="position: sticky; top: 0; height: 0; overflow: visible; z-index: 3"
+        aria-hidden="true"
+      >
+        <div
+          :class="[
+            'eg-section-header',
+            'eg-section-header--sticky',
+            { 'eg-section-header--collapsed': layout.isCollapsed(stickyState.section.index) },
+          ]"
+          :style="stickyHeaderStyle"
+          role="presentation"
+          :data-eg-section-header="String(stickyState.section.key)"
+        >
+          <slot name="section-header" v-bind="sectionHeaderProps(stickyState.section, true)">
+            <span class="eg-section-header__label">{{ String(stickyState.section.key) }}</span>
+            <span class="eg-section-header__count">{{ stickyState.section.count }}</span>
+            <button
+              type="button"
+              tabindex="-1"
+              class="eg-section-header__toggle"
+              :aria-expanded="!layout.isCollapsed(stickyState.section.index)"
+              :aria-label="layout.isCollapsed(stickyState.section.index) ? 'Expand section' : 'Collapse section'"
+              @click="toggleSection(stickyState.section.key)"
+            >
+              {{ layout.isCollapsed(stickyState.section.index) ? '▸' : '▾' }}
+            </button>
+          </slot>
+        </div>
+      </div>
+
       <!-- Header slot - rendered above the virtual items -->
       <slot name="header" />
 
