@@ -83,7 +83,7 @@ const handleContextMenu = (e: MouseEvent, selection: Set<ItemId>) => {
 <template>
   <div class="playground">
     <header class="header">
-      <h1>Explorer Grid Playground</h1>
+      <h1>Explorer Grid Playground <a href="#photos" class="page-link">Photos by month &rarr;</a></h1>
       <div class="controls">
         <label>
           Items:
@@ -199,6 +199,12 @@ const handleContextMenu = (e: MouseEvent, selection: Set<ItemId>) => {
 .header h1 {
   margin: 0 0 1rem 0;
   font-size: 1.5rem;
+}
+
+.page-link {
+  margin-left: 1rem;
+  font-size: 0.875rem;
+  font-weight: 400;
 }
 
 .controls {

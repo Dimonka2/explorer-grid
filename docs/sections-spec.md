@@ -1,8 +1,30 @@
 # Spec: Sections (grouped grid with section headers)
 
-**Status:** 2026-09-29, proposal. Not built. First consumer: Timeprint DB's
-Place tab, grouped by year or month
+**Status:** 2026-09-29, built (S1–S5, version 0.2.0). The §2.1 API is
+implemented as specced; §4 tests pass (`tests/unit/gridLayout.test.ts`,
+`sections.composables.test.ts`, `ExplorerGrid.sections.test.ts`); the
+playground has a "Photos by month" page (50k items, `#photos`). **The
+manual gate (§6) is pending**: it needs a real browser and has not been
+run. First consumer: Timeprint DB's Place tab, grouped by year or month
 (`collect-v/docs/places/place-date-sections-spec.md`).
+
+Implementation notes where the build refines the text below:
+
+- Header rows (and the pinned copy) are `role="presentation"` **and
+  `aria-hidden="true"`**: axe's `aria-required-children` flags any button
+  inside a presentation row of a listbox, and the live region already
+  announces sections (§2.6).
+- The composable changes of §2.8 are additive: every new option (`layout`,
+  `pageSize`, `isVisible`, `stickyHeaderHeight`) is optional and defaults to
+  the uniform layout, so existing composable calls keep compiling and
+  working. 0.2.0 and the migration note in `docs/api.md` cover the one
+  semantic change (the `moveFocus` page argument is in layout units).
+- The "append extends the last run" optimisation (§2.2 Cost) is not built;
+  a full rebuild of 100k items / 500 sections stays well under the 10 ms
+  budget, and the test pins the result, not the incremental path.
+- When the pinned section is collapsed from its sticky header, the grid
+  scrolls that header to the top, so the view does not land mid-way into
+  the following section.
 
 ## 0. Verified facts
 
@@ -244,9 +266,12 @@ Vitest, `tests/unit` and `tests/a11y`:
 - Grouping is specced as two documents: this one for the grid, plus a consumer add-on for the Place tab.
 - The first consumer needs one level only (Year **or** Month), so there is no nesting (§1).
 
-**Open proposals:**
+**Adopted as the build default (2026-09-29), pending user confirmation:**
 
-- **G-D1 — Where grouping happens.** Proposed: the consumer orders items and passes `sectionKey`; the grid only detects runs. The alternative (the grid sorts and groups) would fight paged, server-sorted consumers.
-- **G-D2 — Keyboard collapse.** Proposed: numeric keypad `-` / `+` on the focused item's section. Alternatives: none (mouse only), or Ctrl+Shift+↑ / ↓.
-- **G-D3 — Ctrl+A with collapsed sections.** Proposed: select all, collapsed included. The alternative, visible only, matches the Shift-range rule but surprises "select everything, then bulk-tag".
-- **G-D4 — Header height.** Proposed: fixed per grid (`sectionHeaderHeight`), not measured, to keep the layout pure.
+The four proposals below were built with their proposed option. They are
+not decided until the user confirms them.
+
+- **G-D1 — Where grouping happens.** Proposed: the consumer orders items and passes `sectionKey`; the grid only detects runs. The alternative (the grid sorts and groups) would fight paged, server-sorted consumers. *Adopted as the build default (2026-09-29), pending user confirmation.*
+- **G-D2 — Keyboard collapse.** Proposed: numeric keypad `-` / `+` on the focused item's section. Alternatives: none (mouse only), or Ctrl+Shift+↑ / ↓. *Adopted as the build default (2026-09-29), pending user confirmation: `NumpadSubtract` / `NumpadAdd` by `KeyboardEvent.code`, without Ctrl/Alt/Meta.*
+- **G-D3 — Ctrl+A with collapsed sections.** Proposed: select all, collapsed included. The alternative, visible only, matches the Shift-range rule but surprises "select everything, then bulk-tag". *Adopted as the build default (2026-09-29), pending user confirmation.*
+- **G-D4 — Header height.** Proposed: fixed per grid (`sectionHeaderHeight`), not measured, to keep the layout pure. *Adopted as the build default (2026-09-29), pending user confirmation.*

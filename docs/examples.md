@@ -386,6 +386,68 @@ const selectByType = (type: string) => {
 
 ---
 
+## Photos by Month (Sections)
+
+Group items under full-width headers. The grid does not sort: order the items so that each section is one consecutive run, then pass `sectionKey`. The playground has a 50k-item version (`npm run dev`, then "Photos by month").
+
+```vue
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { ExplorerGrid } from 'vue-explorer-grid'
+import type { GridSection, ItemId, SectionKey } from 'vue-explorer-grid'
+import 'vue-explorer-grid/styles'
+
+interface Photo { id: number; name: string; taken: Date; thumb: string }
+
+const props = defineProps<{ photos: Photo[] }>()
+
+// Newest first, so every month is one consecutive run
+const sorted = computed(() => [...props.photos].sort((a, b) => b.taken.getTime() - a.taken.getTime()))
+const monthKey = (p: Photo): SectionKey => p.taken.getFullYear() * 100 + p.taken.getMonth()
+const monthTitle = (key: SectionKey) =>
+  new Date(Math.floor(Number(key) / 100), Number(key) % 100).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+
+const selectedIds = ref(new Set<ItemId>())
+const collapsed = ref(new Set<SectionKey>())
+</script>
+
+<template>
+  <ExplorerGrid
+    v-model:selected-ids="selectedIds"
+    v-model:collapsed-sections="collapsed"
+    :items="sorted"
+    :get-id="(p) => p.id"
+    :get-label="(p) => p.name"
+    :section-key="monthKey"
+    :section-header-height="40"
+    :get-section-label="(s: GridSection) => `${monthTitle(s.key)}, ${s.count} photos`"
+    :item-width="160"
+    :item-height="120"
+  >
+    <template #section-header="{ section, collapsed: isCollapsed, selectedCount, toggle, selectSection }">
+      <button tabindex="-1" @click="toggle">{{ isCollapsed ? '▸' : '▾' }}</button>
+      <strong>{{ monthTitle(section.key) }}</strong>
+      <span>{{ section.count }}</span>
+      <button
+        tabindex="-1"
+        style="margin-left: auto"
+        @click="selectSection(selectedCount === section.count ? 'remove' : 'add')"
+      >
+        {{ selectedCount === section.count ? 'Deselect' : 'Select' }} month
+      </button>
+    </template>
+
+    <template #item="{ item }">
+      <img :src="item.thumb" :alt="item.name" style="width: 100%; height: 100%; object-fit: cover" />
+    </template>
+  </ExplorerGrid>
+</template>
+```
+
+Collapse state is a plain `Set` of keys, so it is easy to persist. Keys that match no section are kept, which suits paged consumers: a month that has not loaded yet stays collapsed when it arrives. To jump to a month, call `gridRef.value.scrollToSection(key)`; to reveal a photo inside a collapsed month, `gridRef.value.focusById(id)` expands it first.
+
+---
+
 ## Dynamic Items
 
 Handling items that change (search, filter, pagination):

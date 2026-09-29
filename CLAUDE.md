@@ -22,6 +22,7 @@ Vue 3 package providing an Explorer-like virtualized grid with:
 - Selection model (single, multi, range, toggle)
 - Marquee (rubber-band) selection with edge auto-scroll
 - Type-to-select (typeahead)
+- Optional sections (`sectionKey`): sticky, collapsible group headers (spec: `docs/sections-spec.md`)
 - Accessibility (ARIA listbox pattern, screen reader announcements)
 
 **Architecture**: Headless-first (logic composables) with optional reference UI component.
@@ -83,7 +84,10 @@ src/
 │   ├── useKeyboard.ts          # Keyboard event handling
 │   ├── useMarquee.ts           # Rubber-band selection
 │   ├── useTypeahead.ts         # Type-to-select
-│   └── useVirtualGrid.ts       # Virtualization wrapper
+│   ├── useVirtualGrid.ts       # Virtualization wrapper
+│   └── useUniformLayout.ts     # Reactive uniform GridLayout
+├── layout/
+│   └── gridLayout.ts           # Pure row layout: sections, navigation, scroll/sticky math
 ├── components/
 │   └── ExplorerGrid.vue        # Reference UI component
 ├── types/
@@ -138,8 +142,8 @@ Virtualization: `virtualRows`, `totalHeight`, `scrollToIndex`.
 
 ## Test Coverage
 
-- 54 tests total (unit + a11y)
-- Unit tests: useSelection, useFocus, useExplorerGrid
+- 117 tests total (unit + a11y)
+- Unit tests: useSelection, useFocus, useExplorerGrid, gridLayout, sections (composables + component)
 - A11y tests: ARIA attributes, axe-core validation
 
 ## Performance

@@ -11,6 +11,7 @@ A high-performance, accessible Vue 3 grid component with Windows Explorer-like k
 - **Marquee selection** - Click and drag in empty space to select multiple items
 - **Edge auto-scroll** - Marquee selection auto-scrolls when dragging near container edges
 - **Type-to-select** - Start typing to jump to matching items
+- **Sections** - Optional full-width group headers (e.g. photos by month), sticky and collapsible, with section-aware keyboard navigation
 - **Accessible** - ARIA listbox pattern with screen reader announcements
 - **Customizable** - CSS custom properties for theming, slots for custom item rendering
 
@@ -85,6 +86,10 @@ const handleOpen = (id: number, item: Item) => {
 | `rightClickSelect` | `boolean` | `true` | Select item on right-click if not selected |
 | `ariaLabel` | `string` | `'Item grid'` | Accessible label for the grid |
 | `headerOffset` | `number` | `0` | Height of header slot content (for proper item positioning) |
+| `sectionKey` | `(item: T) => SectionKey` | — | Group consecutive items with equal keys under a header row (see [Sections](#sections)) |
+| `sectionHeaderHeight` | `number` | `36` | Height of a section header row |
+| `stickySectionHeaders` | `boolean` | `true` | Pin the current section's header while scrolling |
+| `getSectionLabel` | `(section: GridSection) => string` | the key | Label announced when focus enters a section |
 
 ## v-model
 
@@ -92,6 +97,7 @@ const handleOpen = (id: number, item: Item) => {
 |-------|------|-------------|
 | `selectedIds` | `Set<ItemId>` | Currently selected item IDs |
 | `focusedId` | `ItemId \| null` | Currently focused item ID |
+| `collapsedSections` | `Set<SectionKey>` | Keys of collapsed sections |
 
 ## Events
 
@@ -153,6 +159,7 @@ Custom empty state when no items.
 | `Ctrl + A` | Select all |
 | `Escape` | Clear selection |
 | `Type letters` | Jump to matching item |
+| `Numpad - / +` | Collapse / expand the focused item's section (with `sectionKey`) |
 
 ## Exposed Methods
 
@@ -176,12 +183,40 @@ gridRef.value?.focusById(itemId)
 // Scroll position (useful for restoring scroll state)
 const pos = gridRef.value?.getScrollPosition()
 gridRef.value?.setScrollPosition(pos)
+
+// Sections
+gridRef.value?.setSectionCollapsed(key, true)
+gridRef.value?.scrollToSection(key)
+gridRef.value?.getSections() // [{ key, index, start, count }]
 </script>
 
 <template>
   <ExplorerGrid ref="gridRef" ... />
 </template>
 ```
+
+## Sections
+
+Pass `sectionKey` and the grid draws a full-width header above each run of consecutive items with the same key. The grid does not sort: order your items so that each section is one run.
+
+```vue
+<ExplorerGrid
+  v-model:collapsed-sections="collapsed"
+  :items="photosNewestFirst"
+  :get-id="(p) => p.id"
+  :section-key="(p) => p.month"
+  @section-toggle="(key, isCollapsed) => save(key, isCollapsed)"
+>
+  <template #section-header="{ section, collapsed, selectedCount, toggle, selectSection }">
+    <button tabindex="-1" @click="toggle">{{ collapsed ? '▸' : '▾' }}</button>
+    {{ section.key }} · {{ section.count }}
+    <button tabindex="-1" @click="selectSection('add')">Select month ({{ selectedCount }})</button>
+  </template>
+  <template #item="{ item }">...</template>
+</ExplorerGrid>
+```
+
+Headers are sticky by default and pushed out by the next one. Arrow keys skip header rows and collapsed sections, Shift ranges exclude collapsed sections, Ctrl+A selects everything (collapsed included), and numpad `-` / `+` collapse / expand the focused item's section. Clicking a header never clears the selection or starts a marquee. See [docs/api.md](docs/api.md#sections) for the details and the 0.2.0 migration note for composable users.
 
 ## Styling
 

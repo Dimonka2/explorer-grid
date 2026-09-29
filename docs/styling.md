@@ -94,6 +94,37 @@ The easiest way to customize the look is via CSS custom properties. Set them on 
 | `.eg-empty` | Empty state container |
 | `.eg-sr-only` | Screen reader only (visually hidden) |
 
+### Section Classes
+
+Only rendered when the grid has a `sectionKey`.
+
+| Class | Description |
+|-------|-------------|
+| `.eg-section-header` | A section header row (and the pinned copy) |
+| `.eg-section-header--collapsed` | Header of a collapsed section |
+| `.eg-section-header--sticky` | The pinned copy at the top of the viewport |
+| `.eg-section-sticky` | Zero-height sticky wrapper of the pinned copy |
+| `.eg-section-header__label`, `__count`, `__toggle` | Parts of the default header (not used when you fill `#section-header`) |
+
+## Sections
+
+Two custom properties style the headers:
+
+```css
+.eg-root {
+  /* Keep it opaque: the pinned header covers the items scrolling under it */
+  --eg-section-header-bg: #f3f4f6;
+  --eg-section-header-border: #e5e7eb;
+}
+
+.dark .eg-root {
+  --eg-section-header-bg: #161b22;
+  --eg-section-header-border: #30363d;
+}
+```
+
+The default header is deliberately plain: key, count and a chevron. Most consumers fill the `#section-header` slot instead; its content is placed inside `.eg-section-header`, which is a flex row with `8px` side padding. Header rows are positioned inline (`top`, `left`/`right` = the gap, `height` = `sectionHeaderHeight`), so do not set those in CSS; change the height with the prop. The pinned copy sits at `z-index: 3`, above items (`1`) and header rows (`2`) and below the marquee (`10`).
+
 ## Overriding Styles
 
 ### Selection Indicator

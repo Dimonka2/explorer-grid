@@ -64,6 +64,10 @@ The main component that provides a virtualized, accessible grid with selection a
 | `rightClickSelect` | `boolean` | `true` | Select item on right-click if not already selected |
 | `ariaLabel` | `string` | `'Item grid'` | Accessible label for the grid container |
 | `headerOffset` | `number` | `0` | Height of header slot content (for proper item positioning) |
+| `sectionKey` | `(item: T) => SectionKey` | — | Section of an item. Consecutive items with an equal key form one section. Omitted = no sections (see [Sections](#sections)) |
+| `sectionHeaderHeight` | `number` | `36` | Height of a section header row in px |
+| `stickySectionHeaders` | `boolean` | `true` | Pin the current section's header at the top while scrolling |
+| `getSectionLabel` | `(section: GridSection) => string` | the key | Label announced by the live region when focus moves into a section |
 
 #### v-model Bindings
 
@@ -71,6 +75,7 @@ The main component that provides a virtualized, accessible grid with selection a
 |-------|------|-------------|
 | `selectedIds` | `Set<ItemId>` | Two-way binding for selected item IDs |
 | `focusedId` | `ItemId \| null` | Two-way binding for the focused item ID |
+| `collapsedSections` | `Set<SectionKey>` | Keys of collapsed sections (default: empty). A key that matches no section is kept (it may load later) |
 
 #### Events
 
@@ -83,6 +88,7 @@ The main component that provides a virtualized, accessible grid with selection a
 | `scroll` | `(event: Event)` | Emitted when container is scrolled |
 | `marqueeStart` | `()` | Emitted when marquee selection starts |
 | `marqueeEnd` | `()` | Emitted when marquee selection ends |
+| `sectionToggle` | `(key: SectionKey, collapsed: boolean)` | Emitted when a section is collapsed or expanded (header, keyboard or `setSectionCollapsed`) |
 
 #### Slots
 
@@ -117,6 +123,31 @@ Slot for custom item rendering.
 | `selected` | `boolean` | Whether the item is selected |
 | `focused` | `boolean` | Whether the item is focused |
 
+##### `#section-header`
+
+Content of a section header row (only with `sectionKey`). Rendered for each header row and, with `sticky: true`, for the pinned copy.
+
+```vue
+<template #section-header="{ section, collapsed, selectedCount, sticky, toggle, selectSection }">
+  <button tabindex="-1" @click="toggle">{{ collapsed ? '▸' : '▾' }}</button>
+  <span>{{ section.key }} · {{ section.count }}</span>
+  <button tabindex="-1" @click="selectSection(selectedCount === section.count ? 'remove' : 'add')">
+    Select all
+  </button>
+</template>
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `section` | `GridSection` | `{ key, index, start, count }`: items `[start, start + count)` |
+| `collapsed` | `boolean` | Whether the section is collapsed |
+| `selectedCount` | `number` | How many of the section's items are selected |
+| `sticky` | `boolean` | `true` for the pinned copy at the top |
+| `toggle` | `() => void` | Collapse / expand |
+| `selectSection` | `(mode: 'replace' \| 'add' \| 'remove') => void` | Replace the selection with the section, add it, or remove it (multiple selection mode only) |
+
+Without the slot a minimal header shows `String(key)`, the count and a chevron button. Header rows are `role="presentation"` and `aria-hidden="true"` (a listbox may own only options), so give buttons inside them `tabindex="-1"`: they are mouse affordances; the keyboard route is numpad `-` / `+` and your own menus.
+
 ##### `#empty`
 
 Slot for custom empty state when `items.length === 0`.
@@ -144,13 +175,34 @@ gridRef.value?.scrollToId(id: ItemId)
 gridRef.value?.selectAll()
 gridRef.value?.clearSelection()
 
-// Focus methods
+// Focus methods (an item in a collapsed section expands that section first)
 gridRef.value?.focusById(id: ItemId)
 
 // Scroll position (for saving/restoring scroll state)
 const pos = gridRef.value?.getScrollPosition()  // Returns number
 gridRef.value?.setScrollPosition(pos)
+
+// Sections (only meaningful with sectionKey)
+gridRef.value?.setSectionCollapsed(key: SectionKey, collapsed: boolean)
+gridRef.value?.scrollToSection(key: SectionKey, align?: 'start' | 'center' | 'end' | 'auto') // default 'start'
+gridRef.value?.getSections()  // GridSection[], collapsed ones included
 ```
+
+`scrollToIndex` / `scrollToId` use the row layout: with sticky headers an item under the pinned header counts as hidden, and an item in a collapsed section is not scrolled to (use `focusById` to reveal it).
+
+#### Sections
+
+Pass `sectionKey` to split the items into consecutive runs, each drawn under a full-width header row. The grid does **not** sort or group: order the items so that each section is one consecutive run (a key that reappears later starts a new section).
+
+- Each section starts on a new row; a section may end on a partial row.
+- Collapsed sections contribute only their header row.
+- Keyboard: ←/→ move to the previous / next visible item across sections; ↑/↓ keep the column in the previous / next item row (clamped to a short row's last item); Home/End stay in the item row; Ctrl+Home/End go to the first / last visible item; PageUp/PageDown move by the viewport height (minus a sticky header). Shift ranges skip collapsed sections; **Ctrl+A selects everything, collapsed sections included**. Numpad `-` / `+` collapse / expand the focused item's section; a collapse that hides the focused item moves focus to the first item of the next visible section, or else the previous one.
+- Typeahead only matches visible items. Marquee selects the items under the rectangle across sections; collapsed sections have no rendered items, so they are never marquee-selected.
+- A press on a header (or the pinned header) neither changes the selection nor starts a marquee.
+- Screen readers: options keep global `aria-setsize` / `aria-posinset`; when focus moves into another section, the live region announces `getSectionLabel(section)`.
+- Header height is fixed per grid (`sectionHeaderHeight`); headers are not measured.
+
+Without `sectionKey` the grid behaves and positions exactly as before.
 
 ---
 
@@ -174,6 +226,7 @@ interface UseExplorerGridOptions<T> {
   getId: (item: T) => ItemId
   getLabel?: (item: T) => string
   columnCount: number | Ref<number> | (() => number)
+  layout?: Ref<GridLayout>  // Row layout for navigation; default: uniform over items + columnCount
   selectionMode?: SelectionMode
   marqueeEnabled?: boolean
   typeaheadEnabled?: boolean
@@ -292,10 +345,14 @@ interface UseFocusReturn {
 
   setFocusById: (id: ItemId) => void
   setFocusByIndex: (index: number) => void
-  moveFocus: (direction: NavigationDirection, visibleRows?: number) => number
+  // page: PageUp/PageDown distance in layout units — rows for the default
+  // uniform layout, px when a `layout` option is given. Default: 5 item rows.
+  moveFocus: (direction: NavigationDirection, page?: number) => number
   clearFocus: () => void
 }
 ```
+
+Options also accept `layout?: Ref<GridLayout>`; then `columnCount` is not needed and every move goes through `layout.navigate`.
 
 #### Navigation Directions
 
@@ -340,6 +397,7 @@ interface UseTypeaheadOptions<T> {
   getId: (item: T) => ItemId
   focus: UseFocusReturn
   debounceMs?: number  // Default: 500
+  isVisible?: (index: number) => boolean  // Skip items (e.g. in collapsed sections)
 }
 ```
 
@@ -412,6 +470,19 @@ const virtual = useVirtualGrid({
 })
 ```
 
+Or drive it with a layout (for sections):
+
+```ts
+const virtual = useVirtualGrid({
+  containerRef,
+  containerHeight,
+  layout: layoutRef,          // Ref<GridLayout>, e.g. from buildGridLayout
+  gap: 8,
+  headerOffset: 0,
+  stickyHeaderHeight: 36,     // pinned header height, 0 = none
+})
+```
+
 #### Return Value
 
 ```ts
@@ -419,7 +490,11 @@ interface UseVirtualGridReturn {
   virtualRows: ComputedRef<VirtualRow[]>
   totalHeight: ComputedRef<number>
   visibleRowCount: ComputedRef<number>
+  pageSize: ComputedRef<number>        // PageUp/PageDown distance in px
+  scrollTop: Ref<number>
+  layout: ComputedRef<GridLayout>
   scrollToIndex: (index: number, align?: 'start' | 'center' | 'end' | 'auto') => void
+  scrollToSection: (key: SectionKey, align?: 'start' | 'center' | 'end' | 'auto') => void
   scrollToOffset: (offset: number) => void
 }
 
@@ -427,7 +502,10 @@ interface VirtualRow {
   index: number
   start: number  // Y position
   size: number   // Row height
-  items: VirtualItem[]
+  items: VirtualItem[]  // empty for a header row
+  key: string | number  // stable row key
+  kind: 'header' | 'items'
+  section: GridSection
 }
 
 interface VirtualItem {
@@ -456,10 +534,83 @@ type SelectionMode = 'single' | 'multiple' | 'none'
 
 ```ts
 interface HitTestResult {
-  type: 'item' | 'empty'
+  type: 'item' | 'empty' | 'section-header'  // header hits are ignored
   itemId?: ItemId
   index?: number
 }
+```
+
+### SectionKey, GridSection
+
+```ts
+type SectionKey = string | number
+
+interface GridSection {
+  key: SectionKey
+  index: number  // position in getSections()
+  start: number  // first item index
+  count: number  // items [start, start + count)
+}
+```
+
+---
+
+## Layout
+
+The row layout is a pure function, exported for headless use and tests.
+
+```ts
+import { buildGridLayout, buildUniformLayout, computeSectionRuns } from 'vue-explorer-grid'
+
+const runs = computeSectionRuns(items, (p) => p.month)   // one O(n) pass
+const layout = buildGridLayout({
+  runs,                 // { key, start, count }[]
+  columnCount: 5,
+  collapsed: new Set(['2019-05']),
+  headerHeight: 36,
+  rowHeight: 100,
+  gap: 8,
+  headers: true,        // false = the uniform, header-less grid
+})
+
+layout.rowCount; layout.totalHeight; layout.sections
+layout.getRow(r)        // { index, kind, key, start, height, section, first, last }
+layout.rowOfItem(i)     // -1 when the item's section is collapsed
+layout.itemAt(r, col)   // clamped to the row's last item
+layout.rowAtOffset(y); layout.sectionAtOffset(y)
+layout.firstItem(); layout.lastItem()
+layout.navigate(index, direction, pagePx)
+```
+
+Row keys are the row index for a uniform layout and `h:<key>` / `r:<key>:<rowInSection>` with sections, so they stay stable when a section above collapses. `buildUniformLayout(count, columnCount, rowHeight, gap)` reproduces the classic `index / columnCount` grid exactly. Also exported: `scrollTopForItem`, `scrollTopForSection`, `stickyHeaderState` and the `useUniformLayout` composable.
+
+---
+
+## Migrating to 0.2.0
+
+The `ExplorerGrid` component's props, events and slots do not break; sections are opt-in through `sectionKey`.
+
+For direct composable callers, 0.2.0 moves keyboard navigation and virtualization onto a `GridLayout`. Every new option is optional and defaults to the uniform layout, so existing calls keep working. What changed:
+
+- `useFocus().moveFocus(direction, page?)`: the second argument is now a page size in **layout units**. With the default layout (no `layout` option) a unit is one row, exactly as `visibleRows` was. If you pass a pixel `layout`, pass pixels.
+- `useKeyboard`: `columnCount` and `visibleRows` are optional; prefer `pageSize` (same units as above) and pass `layout` so Shift ranges skip collapsed sections.
+- `useVirtualGrid`: `items`, `columnCount` and `rowHeight` are optional when you pass `layout`; it now also returns `pageSize`, `scrollTop`, `layout` and `scrollToSection`.
+- `VirtualRow` gained `key`, `kind` and `section`; key your row `v-for` by `row.key`.
+- `HitTestResult.type` gained `'section-header'`.
+
+To share one layout between the composables, build it once:
+
+```ts
+import { useUniformLayout, useFocus, useVirtualGrid } from 'vue-explorer-grid'
+
+// px layout for the virtualizer and navigation
+const layout = useUniformLayout({ items, columnCount, rowHeight: 100, gap: 8 })
+// or: computed(() => buildGridLayout({ runs: [{ key: 0, start: 0, count: items.value.length }],
+//                                        columnCount: cols.value, rowHeight: 100, gap: 8, headers: false }))
+
+const focus = useFocus({ items, getId, layout })
+const virtual = useVirtualGrid({ containerRef, containerHeight, layout, gap: 8 })
+focus.moveFocus('pageDown', virtual.pageSize.value)  // px, because the layout is in px
 ```
 
 ### ExplorerGridItem
