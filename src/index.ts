@@ -12,6 +12,18 @@ export {
   useVirtualGrid,
 } from './composables'
 
+// Layout (pure functions)
+export {
+  buildGridLayout,
+  buildUniformLayout,
+  computeSectionRuns,
+  scrollTopForItem,
+  scrollTopForSection,
+  stickyHeaderState,
+  DEFAULT_SECTION_HEADER_HEIGHT,
+} from './layout/gridLayout'
+export type { ScrollAlign, ScrollTargetOptions, StickyHeaderState } from './layout/gridLayout'
+
 // Types
 export type {
   ItemId,
@@ -39,6 +51,13 @@ export type {
   UseMarqueeReturn,
   UseVirtualGridOptions,
   UseVirtualGridReturn,
+  SectionKey,
+  GridSection,
+  SectionRun,
+  GridRowKind,
+  GridLayoutRow,
+  GridLayout,
+  BuildGridLayoutOptions,
 } from './types'
 
 // Styles (import separately: import 'explorer-grid/styles')

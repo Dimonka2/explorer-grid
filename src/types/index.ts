@@ -237,3 +237,91 @@ export interface UseVirtualGridReturn {
   scrollToIndex: (index: number, align?: 'start' | 'center' | 'end' | 'auto') => void
   scrollToOffset: (offset: number) => void
 }
+
+// Sections / layout
+export type SectionKey = string | number
+
+/** A section of the grid: items `[start, start + count)` share one `sectionKey`. */
+export interface GridSection {
+  key: SectionKey
+  /** Position of the section in `getSections()` order. */
+  index: number
+  /** Index of the section's first item in `items`. */
+  start: number
+  /** Number of items in the section. */
+  count: number
+}
+
+/** A consecutive run of items with the same section key. */
+export interface SectionRun {
+  key: SectionKey
+  start: number
+  count: number
+}
+
+export type GridRowKind = 'header' | 'items'
+
+/** One row of a grid layout, as returned by `GridLayout.getRow`. */
+export interface GridLayoutRow {
+  index: number
+  kind: GridRowKind
+  /** Stable key: the row index for a uniform layout, `h:<key>` / `r:<key>:<rowInSection>` for sections. */
+  key: string | number
+  /** Top of the row, relative to the first row (excludes header slot and leading gap). */
+  start: number
+  height: number
+  section: GridSection
+  /** First / last item index of an item row; -1 for a header row. */
+  first: number
+  last: number
+}
+
+export interface BuildGridLayoutOptions {
+  runs: SectionRun[]
+  columnCount: number
+  /** Keys of collapsed sections (ignored when `headers` is false). */
+  collapsed?: ReadonlySet<SectionKey>
+  /** Height of a section header row in px (default 36). */
+  headerHeight?: number
+  rowHeight: number
+  gap?: number
+  /** Emit a header row per section (default true). False gives the uniform, header-less grid. */
+  headers?: boolean
+}
+
+/** Pure description of the grid's rows: headers, item rows and where each starts. */
+export interface GridLayout {
+  /** True when the layout has section header rows. */
+  readonly sectioned: boolean
+  readonly sections: readonly GridSection[]
+  readonly itemCount: number
+  readonly rowCount: number
+  readonly columnCount: number
+  readonly rowHeight: number
+  readonly gap: number
+  readonly headerHeight: number
+  /** Sum of all row heights. */
+  readonly totalHeight: number
+
+  getRow(row: number): GridLayoutRow
+  rowStart(row: number): number
+  rowHeightAt(row: number): number
+  rowKind(row: number): GridRowKind
+  /** Row of an item, or -1 when its section is collapsed (or the index is out of range). */
+  rowOfItem(index: number): number
+  /** Item at a column of an item row, clamped to the row's last item; -1 for a header row. */
+  itemAt(row: number, col: number): number
+  /** Row containing offset `y` (relative to the first row), clamped to the rows. */
+  rowAtOffset(y: number): number
+  sectionAtOffset(y: number): GridSection | undefined
+  sectionOfItem(index: number): GridSection | undefined
+  sectionByKey(key: SectionKey): GridSection | undefined
+  /** Header row of a section, or -1 in a header-less layout. */
+  headerRowOf(sectionIndex: number): number
+  isCollapsed(sectionIndex: number): boolean
+  /** First / last visible item, or -1 when there is none. */
+  firstItem(): number
+  lastItem(): number
+  /** Target item index for a keyboard move; `page` is the page height in layout px. */
+  navigate(index: number, direction: NavigationDirection, page?: number): number
+}
