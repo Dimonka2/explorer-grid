@@ -158,6 +158,12 @@ describe('ExplorerGrid sections', () => {
     expect(w.find('[data-eg-id="7"]').exists()).toBe(true)
   })
 
+  it('mounts with an initial focusedId, expanding its collapsed section', async () => {
+    const w = await mountGrid({ focusedId: 7, collapsedSections: new Set(['2019-05']) })
+    expect(w.emitted('sectionToggle')?.[0]).toEqual(['2019-05', false])
+    expect(w.find('[data-eg-id="7"]').exists()).toBe(true)
+  })
+
   it('focusById expands through a bound v-model:collapsedSections', async () => {
     const w = await mountGrid({
       collapsedSections: new Set(['2019-04']),

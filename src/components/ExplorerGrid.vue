@@ -191,19 +191,6 @@ watch(
   { immediate: true }
 )
 
-// Sync external focusedId changes to internal grid state
-watch(
-  focusedId,
-  (newId) => {
-    if (newId !== grid.focusedId.value) {
-      if (newId !== null) {
-        focusByIdRevealing(newId)
-      }
-    }
-  },
-  { immediate: true }
-)
-
 // Marquee selection
 const marqueeEnabled = computed(() => props.marqueeEnabled && props.selectionMode === 'multiple')
 
@@ -368,6 +355,20 @@ const focusByIdRevealing = (id: ItemId) => {
   }
   grid.focusById(id)
 }
+
+// Sync external focusedId changes to internal grid state. Declared after
+// focusByIdRevealing: `immediate` runs the callback during setup.
+watch(
+  focusedId,
+  (newId) => {
+    if (newId !== grid.focusedId.value) {
+      if (newId !== null) {
+        focusByIdRevealing(newId)
+      }
+    }
+  },
+  { immediate: true }
+)
 
 // When the layout changes: finish a pending reveal, and move focus out of a
 // section that was just collapsed (first item of the next visible section,
